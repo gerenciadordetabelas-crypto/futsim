@@ -184,11 +184,11 @@ if(restoredBase){
  save();
 }
 
-// Corrige a colisão histórica da sigla CHA (Chapecoense / Charlton Athletic).
-// Garante que cada clube inglês da Championship exista separadamente e mantém os dados das outras ligas.
+// Corrige a colisão histórica da sigla CHA e evita duplicação dos clubes galeses da Championship.
+// A busca é pelo nome do clube, não apenas por country: Swansea City e Wrexham representam o País de Gales.
 if(englandChampionship){
  const repairedIds=championshipTeams.map(t=>{
-  let club=state.teams.find(x=>x.country==='Inglaterra'&&(x.name===t[0]||x.shortName===t[0]));
+  let club=state.teams.find(x=>String(x.name||'').trim().toLowerCase()===t[0].toLowerCase()||String(x.shortName||'').trim().toLowerCase()===t[0].toLowerCase());
   if(!club){
    club={id:state.nextId++,name:t[0],shortName:t[0],abbreviation:t[1],country:t[2],stateName:t[3],city:t[4],strength:t[5],baseStrength:t[5],colors:t[6]};
    state.teams.push(club);
@@ -202,13 +202,37 @@ if(englandChampionship){
   if(oldId!=null&&oldId!==newId&&!oldIds.some((id,j)=>j!==i&&id===oldId))remaps.push([oldId,newId]);
  });
  remaps.forEach(([oldId,newId])=>{
-  englandChampionship.fixtures=(englandChampionship.fixtures||[]).map(f=>({...f,homeId:f.homeId===oldId?newId:f.homeId,awayId:f.awayId===oldId?newId:f.awayId}));
-  state.results.forEach(r=>{if(r.leagueId===englandChampionship.id){if(r.homeId===oldId)r.homeId=newId;if(r.awayId===oldId)r.awayId=newId}});
+  state.leagues.forEach(l=>{
+   l.teamIds=(l.teamIds||[]).map(id=>id===oldId?newId:id);
+   l.fixtures=(l.fixtures||[]).map(f=>({...f,homeId:f.homeId===oldId?newId:f.homeId,awayId:f.awayId===oldId?newId:f.awayId}));
+  });
+  state.results.forEach(r=>{if(r.homeId===oldId)r.homeId=newId;if(r.awayId===oldId)r.awayId=newId});
+  state.seasons.forEach(season=>{if(season.championId===oldId)season.championId=newId});
  });
- if(oldIds.length!==repairedIds.length||repairedIds.some((id,i)=>oldIds[i]!==id)){
-  englandChampionship.teamIds=repairedIds;
+ englandChampionship.teamIds=[...new Set(repairedIds)];
+ if(oldIds.length!==englandChampionship.teamIds.length||repairedIds.some((id,i)=>oldIds[i]!==id)||remaps.length)save();
+}
+
+// Remove registros duplicados do mesmo clube (mesmo nome e país), mantendo o primeiro ID
+// e redirecionando todas as referências antes de salvar. Nenhum clube distinto é removido.
+{
+ const canonical=new Map(), duplicateMap=new Map();
+ state.teams.forEach(t=>{
+  const key=String(t.name||t.shortName||'').trim().toLocaleLowerCase()+'|'+String(t.country||'').trim().toLocaleLowerCase();
+  if(canonical.has(key))duplicateMap.set(t.id,canonical.get(key).id);
+  else canonical.set(key,t);
+ });
+ if(duplicateMap.size){
+  const resolve=id=>{let next=id,guard=0;while(duplicateMap.has(next)&&guard++<20)next=duplicateMap.get(next);return next};
+  state.leagues.forEach(l=>{
+   l.teamIds=[...new Set((l.teamIds||[]).map(resolve))];
+   l.fixtures=(l.fixtures||[]).map(f=>({...f,homeId:resolve(f.homeId),awayId:resolve(f.awayId)}));
+  });
+  state.results.forEach(r=>{r.homeId=resolve(r.homeId);r.awayId=resolve(r.awayId)});
+  state.seasons.forEach(season=>{if(season.championId!=null)season.championId=resolve(season.championId)});
+  state.teams=state.teams.filter(t=>!duplicateMap.has(t.id));
   save();
- }
+}
 }
 
 // Migração de nomes curtos, sem remover clubes.
