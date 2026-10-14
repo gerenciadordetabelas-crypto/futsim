@@ -166,6 +166,51 @@ if(englandChampionship&&englandChampionship.teamIds.length===0){
 }
 
 
+
+ // Espanha: cadastra somente os 20 clubes fornecidos, de forma idempotente.
+if(!state.countries.includes('Espanha'))state.countries.push('Espanha');
+const laLigaTeams=[
+ ['Barcelona','BAR','Catalunha','Barcelona',93,['#A50044','#004D98']],
+ ['Atlético de Madrid','ATM','Comunidade de Madrid','Madrid',89,['#CB3524','#FFFFFF','#272E61']],
+ ['Betis','BET','Andaluzia','Sevilha',82,['#00954C','#FFFFFF']],
+ ['Real Madrid','RMA','Comunidade de Madrid','Madrid',95,['#FFFFFF','#FEBE10','#00529F']],
+ ['Sevilla','SEV','Andaluzia','Sevilha',82,['#FFFFFF','#D71920']],
+ ['Real Sociedad','RSO','País Basco','San Sebastián',82,['#0067B1','#FFFFFF']],
+ ['Alavés','ALA','País Basco','Vitoria-Gasteiz',75,['#00529F','#FFFFFF']],
+ ['Deportivo A Coruña','DEP','Galícia','A Coruña',73,['#007AC3','#FFFFFF']],
+ ['Celta de Vigo','CEL','Galícia','Vigo',79,['#87CEEB','#FFFFFF']],
+ ['Athletic Bilbao','ATH','País Basco','Bilbao',84,['#EE2523','#FFFFFF']],
+ ['Villarreal','VIL','Comunidade Valenciana','Villarreal',84,['#FDE100','#005187']],
+ ['Espanyol','ESP','Catalunha','Barcelona',76,['#007FC8','#FFFFFF']],
+ ['Rayo Vallecano','RAY','Comunidade de Madrid','Madrid',77,['#FFFFFF','#E30613']],
+ ['Getafe','GET','Comunidade de Madrid','Getafe',75,['#005999','#FFFFFF']],
+ ['Racing Santander','RAC','Cantábria','Santander',72,['#008F4C','#FFFFFF']],
+ ['Osasuna','OSA','Navarra','Pamplona',78,['#D71920','#002D62']],
+ ['Levante','LEV','Comunidade Valenciana','Valência',73,['#E30613','#00529F']],
+ ['Elche','ELC','Comunidade Valenciana','Elche',73,['#00843D','#FFFFFF']],
+ ['Valencia','VAL','Comunidade Valenciana','Valência',81,['#F28C00','#000000']],
+ ['Málaga','MAL','Andaluzia','Málaga',72,['#009FE3','#FFFFFF']]
+];
+let laLiga=state.leagues.find(l=>l.country==='Espanha'&&(l.name==='La Liga EA Sports'||l.shortName==='La Liga'||l.name==='La Liga'));
+if(!laLiga){laLiga={id:state.nextId++,name:'La Liga EA Sports',shortName:'La Liga',country:'Espanha',kind:'Liga',format:'Pontos Corridos',teamIds:[],fixtures:[],turns:2,season:1};state.leagues.push(laLiga)}
+const laLigaIds=laLigaTeams.map(t=>{
+ let club=state.teams.find(x=>String(x.name||'').trim().toLowerCase()===t[0].toLowerCase()||String(x.shortName||'').trim().toLowerCase()===t[0].toLowerCase());
+ if(!club){club={id:state.nextId++,name:t[0],shortName:t[0],abbreviation:t[1],country:'Espanha',stateName:t[2],city:t[3],strength:t[4],baseStrength:t[4],colors:t[5]};state.teams.push(club)}
+ else {club.name=t[0];club.shortName=t[0];club.abbreviation=t[1];club.country='Espanha';club.stateName=t[2];club.city=t[3];club.colors=t[5];if(typeof club.baseStrength!=='number')club.baseStrength=t[4];if(typeof club.strength!=='number')club.strength=t[4]}
+ return club.id;
+});
+laLiga.name='La Liga EA Sports';
+laLiga.shortName='La Liga';
+laLiga.country='Espanha';
+laLiga.kind='Liga';
+laLiga.format='Pontos Corridos';
+laLiga.regulation='Os 20 clubes se enfrentam em jogos de ida e volta no sistema de pontos corridos. O clube que somar o maior número de pontos será declarado campeão. Os três piores clubes serão rebaixados.';
+laLiga.teamIds=laLigaIds;
+laLiga.turns=2;
+laLiga.season=Number(laLiga.season)||1;
+if(!Array.isArray(laLiga.fixtures)||laLiga.fixtures.length===0)laLiga.fixtures=buildLeagueFixtures(laLigaIds,2);
+save();
+
 // Restaura os clubes-base que já faziam parte do FutSim antes da alteração anterior.
 // Não apaga dados do usuário e não cria clubes fora dessas listas históricas.
 let restoredBase=false;
