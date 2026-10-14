@@ -105,7 +105,27 @@ function poisson(lambda){let L=Math.exp(-lambda),k=0,p=1;do{k++;p*=Math.random()
 function play(l,f,deferRating=false){let h=state.teams.find(t=>t.id===f.homeId),a=state.teams.find(t=>t.id===f.awayId);if(!h||!a)return null;let hs=Number(h.strength)||50,as=Number(a.strength)||50,diff=(hs-as)/100;let hg=Math.min(8,poisson(Math.max(.25,1.3+diff*1.7+.22))),ag=Math.min(8,poisson(Math.max(.2,1.15-diff*1.5)));let result={id:state.nextId++,leagueId:l.id,homeId:h.id,awayId:a.id,hg,ag,round:f.round,homeRatingBefore:hs,awayRatingBefore:as};state.results.push(result);if(!deferRating)applyRating(result);return result}
 function buildLeagueFixtures(ids,turns){let rotation=ids.slice();if(rotation.length%2)rotation.push(null);let n=rotation.length,half=n/2,fixtures=[],round=1;for(let r=0;r<n-1;r++){for(let i=0;i<half;i++){let a=rotation[i],b=rotation[n-1-i];if(a!==null&&b!==null){let home=(r+i)%2===0?a:b,away=(r+i)%2===0?b:a;fixtures.push({homeId:home,awayId:away,round})}}let fixed=rotation[0];let rest=rotation.slice(1);rest.unshift(rest.pop());rotation=[fixed,...rest];round++}if(turns===2){const first=fixtures.slice();first.forEach(f=>fixtures.push({homeId:f.awayId,awayId:f.homeId,round:f.round+n-1}))}return fixtures}
 function createLeague(name,ids,kind,turns=2,country=null){if(ids.length<2)return alert('Escolha pelo menos 2 clubes.');let fixtures;if(kind==='Liga'){fixtures=buildLeagueFixtures(ids,turns)}else{fixtures=[];let round=1;for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++)fixtures.push({homeId:ids[i],awayId:ids[j],round:round++})}let l={id:state.nextId++,name,kind,country:country||state.teams.find(t=>ids.includes(t.id))?.country||selectedCountry||'Brasil',season:1,teamIds:ids,fixtures,turns:kind==='Liga'?turns:1};state.leagues.push(l);save();render();alert(kind==='Liga'?'Liga criada com rodadas organizadas. Boa temporada!':'Campeonato criado! Já pode simular os jogos.')}
-function endSeason(id){const l=state.leagues.find(x=>x.id===id);if(!l)return;if(l.seasonCompleted)return alert('Temporada já encerrada.');if(playedCount(l)<l.fixtures.length)return alert('Só é possível encerrar depois de todos os jogos.');if(!confirm('Encerrar a temporada '+(l.season||1)+' de '+l.name+' e guardar o campeão no histórico?'))return;const rows=standings(l),results=state.results.filter(r=>r.leagueId===l.id).map(r=>({...r})),seasonNo=Number(l.season)||1;state.seasons.push({id:state.nextId++,leagueId:l.id,leagueName:l.name,season:seasonNo,championId:rows[0]?.id??null,championName:rows[0]?.name??'Sem campeão',table:rows.map((t,i)=>({...t,position:i+1})),results,completedAt:new Date().toISOString(),format:l.kind});l.seasonCompleted=true;save();render();alert('Temporada encerrada! Use “Próxima temporada” para continuar.')}
+function endSeason(id){
+ const l=state.leagues.find(x=>x.id===id);if(!l)return;
+ if(l.seasonCompleted)return alert('Temporada já encerrada.');
+ if(playedCount(l)<l.fixtures.length)return alert('Só é possível encerrar depois de todos os jogos.');
+ if(!confirm('Encerrar a temporada '+(l.season||1)+' de '+l.name+' e guardar o campeão no histórico?'))return;
+ const rows=standings(l),results=state.results.filter(r=>r.leagueId===l.id&&!r.playoff).map(r=>({...r})),seasonNo=Number(l.season)||1;
+ state.seasons.push({id:state.nextId++,leagueId:l.id,leagueName:l.name,season:seasonNo,championId:rows[0]?.id??null,championName:rows[0]?.name??'Sem campeão',table:rows.map((t,i)=>({...t,position:i+1})),results,completedAt:new Date().toISOString(),format:l.kind,country:leagueCountry(l)});
+ l.seasonCompleted=true;
+ let movement=null;
+ if(normalizeCountryForMovement(leagueCountry(l))){
+   const brazil=state.leagues.filter(x=>normalizeCountryForMovement(leagueCountry(x)));
+   const aLeague=brazil.find(x=>/serie\s*a/.test(String(x.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase())||['campeonato brasileiro','brasileirao'].includes(String(x.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()));
+   const bLeague=brazil.find(x=>/serie\s*b/.test(String(x.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()));
+   if(aLeague&&bLeague&&aLeague.seasonCompleted&&bLeague.seasonCompleted)movement=applyBrazilPromotionRelegation();
+ }
+ save();render();
+ let message='Temporada encerrada! O campeão foi '+(rows[0]?.name||'—')+'.';
+ if(movement?.promoted)message+='\n\nAcesso/rebaixamento concluído: 2 clubes subiram diretamente da Série B, 2 vagas foram decididas nos playoffs e os 4 últimos da Série A desceram para a Série B.';
+ else if(movement?.error)message+='\n\nA movimentação entre divisões não foi aplicada: '+movement.error;
+ alert(message);
+}
 function applyBrazilPromotionRelegation(){
  // A movimentação só usa clubes já cadastrados e só acontece ao fechar a temporada nacional.
  const normalize=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
