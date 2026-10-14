@@ -394,14 +394,10 @@ function endSeason(id){
  state.seasons.push({id:state.nextId++,leagueId:l.id,leagueName:l.name,season:seasonNo,championId:rows[0]?.id??null,championName:rows[0]?.name??'Sem campeão',table:rows.map((t,i)=>({...t,position:i+1})),results,completedAt:new Date().toISOString(),format:l.kind,country:leagueCountry(l)});
  l.seasonCompleted=true;
  let movement=null;
- if(normalizeCountryForMovement(leagueCountry(l))){
-   const brazil=state.leagues.filter(x=>normalizeCountryForMovement(leagueCountry(x)));
-   const aLeague=brazil.find(x=>/serie\s*a/.test(String(x.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase())||['campeonato brasileiro','brasileirao'].includes(String(x.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()));
-   const bLeague=brazil.find(x=>/serie\s*b/.test(String(x.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()));
-   if(aLeague&&bLeague&&aLeague.seasonCompleted&&bLeague.seasonCompleted)movement=applyBrazilPromotionRelegation();
-   const spanish=state.leagues.filter(x=>String(leagueCountry(x)).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='espanha');const la1=spanish.find(x=>/la liga ea sports|\bla liga\b/i.test(String(x.name||'')+' '+String(x.shortName||''))&&!/hypermotion|la liga 2/i.test(String(x.name||'')+' '+String(x.shortName||''))),la2=spanish.find(x=>/la liga hypermotion|la liga 2/i.test(String(x.name||'')+' '+String(x.shortName||'')));if(la1&&la2&&la1.seasonCompleted&&la2.seasonCompleted)movement=applySpainPromotionRelegation();
-   const english=state.leagues.filter(x=>String(leagueCountry(x)).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='inglaterra');const epl=english.find(x=>/premier league/i.test(x.name||'')),champ=english.find(x=>/championship/i.test(String(x.name||'')+' '+String(x.shortName||'')));if(epl&&champ&&epl.seasonCompleted&&champ.seasonCompleted)movement=applyEnglandPromotionRelegation();
- }
+ const countryNorm=String(leagueCountry(l)||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ if(countryNorm==='brasil'){const ls=state.leagues.filter(x=>String(leagueCountry(x)).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='brasil');const aa=ls.find(x=>/serie\s*a/.test(String(x.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase())||['campeonato brasileiro','brasileirao'].includes(String(x.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase())),bb=ls.find(x=>/serie\s*b/.test(String(x.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()));if(aa&&bb&&aa.seasonCompleted&&bb.seasonCompleted)movement=applyBrazilPromotionRelegation();}
+ else if(countryNorm==='espanha'){const ls=state.leagues.filter(x=>String(leagueCountry(x)).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='espanha');const aa=ls.find(x=>/la liga ea sports|\bla liga\b/i.test(String(x.name||'')+' '+String(x.shortName||''))&&!/hypermotion|la liga 2/i.test(String(x.name||'')+' '+String(x.shortName||''))),bb=ls.find(x=>/la liga hypermotion|la liga 2/i.test(String(x.name||'')+' '+String(x.shortName||'')));if(aa&&bb&&aa.seasonCompleted&&bb.seasonCompleted)movement=applySpainPromotionRelegation();}
+ else if(countryNorm==='inglaterra'){const ls=state.leagues.filter(x=>String(leagueCountry(x)).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='inglaterra');const aa=ls.find(x=>/premier league/i.test(x.name||'')),bb=ls.find(x=>/championship/i.test(String(x.name||'')+' '+String(x.shortName||'')));if(aa&&bb&&aa.seasonCompleted&&bb.seasonCompleted)movement=applyEnglandPromotionRelegation();}
  save();render();
  let message='Temporada encerrada! O campeão foi '+(rows[0]?.name||'—')+'.';
  if(movement?.promoted&&String(leagueCountry(l)||'').toLowerCase()==='inglaterra')message+='\n\nPremier League: os 3 últimos foram rebaixados. Da Championship, 2 clubes subiram diretamente e o campeão dos playoffs conquistou a terceira vaga.';else if(movement?.promoted)message+='\n\nAcesso/rebaixamento concluído: 2 clubes subiram diretamente e o vencedor dos playoffs garantiu a terceira vaga. Os 3 últimos da primeira divisão foram rebaixados.';
@@ -422,49 +418,20 @@ function applyBrazilPromotionRelegation(){
  const promoted=[...direct,champion];a.teamIds=[...new Set([...a.teamIds.filter(id=>!relegated.includes(id)),...promoted])];b.teamIds=[...new Set([...b.teamIds.filter(id=>!promoted.includes(id)),...relegated])];a.lastMovementSeason=a.season;b.lastMovementSeason=b.season;
  const archived=state.seasons.find(x=>x.leagueId===b.id&&Number(x.season)===(Number(b.season)||1));if(archived)archived.results.push(...playoffResults.filter(r=>!archived.results.some(x=>x.id===r.id)));return {promoted,relegated,playoffResults};
 }function applyEnglandPromotionRelegation(){
- const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
- const england=state.leagues.filter(l=>norm(leagueCountry(l))==='inglaterra');
- const a=england.find(l=>/premier league/i.test(String(l.name||'')));
- const b=england.find(l=>/championship/i.test(String(l.name||'')+' '+String(l.shortName||'')));
- if(!a||!b)return {error:'Não encontrei a Premier League e a EFL Championship.'};
- if(a.kind!=='Liga'||b.kind!=='Liga')return {error:'As duas divisões precisam estar no formato Liga.'};
- if(playedCount(a)<a.fixtures.length||playedCount(b)<b.fixtures.length)return {error:'Conclua os jogos das duas divisões antes de definir acesso e rebaixamento.'};
- if(a.lastMovementSeason===a.season&&b.lastMovementSeason===b.season)return {alreadyApplied:true};
- const aRows=standings(a),bRows=standings(b);
- if(aRows.length<3||bRows.length<8)return {error:'Não há clubes suficientes para os playoffs e a movimentação entre divisões.'};
- const relegated=aRows.slice(-3).map(t=>t.id),direct=bRows.slice(0,2).map(t=>t.id),playoffResults=[];
- const oneMatch=(homeId,awayId,round,label)=>{
-  const res=play({id:b.id},{homeId,awayId,round});
-  if(!res)return null;
-  res.playoff=true;res.playoffLabel=label;playoffResults.push({...res});
-  if(res.hg!==res.ag)return res.hg>res.ag?homeId:awayId;penaltyShootout(res,homeId,awayId);return res.penaltyWinnerId;
- };
- const q1=oneMatch(bRows[4].id,bRows[7].id,47,'Playoffs · Quartas de final · 5º x 8º');
- const q2=oneMatch(bRows[5].id,bRows[6].id,48,'Playoffs · Quartas de final · 6º x 7º');
- const semiWinners=[];
- [[bRows[2].id,q2],[bRows[3].id,q1]].forEach((pair,i)=>{
-  const agg={[pair[0]]:0,[pair[1]]:0};
-  for(let leg=0;leg<2;leg++){
-   const home=leg===0?pair[0]:pair[1],away=leg===0?pair[1]:pair[0];
-   const res=play({id:b.id},{homeId:home,awayId:away,round:49+i*2+leg});
-   if(!res)continue;
-   res.playoff=true;res.playoffLabel='Playoffs · Semifinal '+(i+1)+' · '+(leg===0?'ida':'volta');playoffResults.push({...res});
-   agg[home]+=res.hg;agg[away]+=res.ag;
-  }
-  if(agg[pair[0]]!==agg[pair[1]])semiWinners.push(agg[pair[0]]>agg[pair[1]]?pair[0]:pair[1]);
-  else{const legs=playoffResults.filter(r=>(r.homeId===pair[0]&&r.awayId===pair[1])||(r.homeId===pair[1]&&r.awayId===pair[0]));const decisive=legs[legs.length-1];if(decisive)penaltyShootout(decisive);semiWinners.push(decisive?.penaltyWinnerId||pair[0])}
- });
- const champion=semiWinners.length===2?oneMatch(semiWinners[0],semiWinners[1],53,'Playoffs · Final · jogo único'):null;
- if(!champion)return {error:'Não foi possível concluir os playoffs da Championship.'};
- const promoted=[...direct,champion];
- a.teamIds=[...new Set([...a.teamIds.filter(id=>!relegated.includes(id)),...promoted])];
- b.teamIds=[...new Set([...b.teamIds.filter(id=>!promoted.includes(id)),...relegated])];
- a.lastMovementSeason=a.season;b.lastMovementSeason=b.season;
- const archived=state.seasons.find(x=>x.leagueId===b.id&&Number(x.season)===(Number(b.season)||1));
- if(archived)archived.results.push(...playoffResults);
- return {promoted,relegated,playoffResults};
+ const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(),england=state.leagues.filter(l=>norm(leagueCountry(l))==='inglaterra');
+ const a=england.find(l=>/premier league/i.test(String(l.name||''))),b=england.find(l=>/championship/i.test(String(l.name||'')+' '+String(l.shortName||'')));
+ if(!a||!b)return {error:'Não encontrei a Premier League e a EFL Championship.'};if(playedCount(a)<a.fixtures.length||playedCount(b)<b.fixtures.length)return {error:'Conclua os jogos das duas divisões antes de definir acesso e rebaixamento.'};if(a.lastMovementSeason===a.season&&b.lastMovementSeason===b.season)return {alreadyApplied:true};
+ const ar=standings(a),br=standings(b);if(ar.length<3||br.length<8)return {error:'Não há clubes suficientes para os playoffs e a movimentação entre divisões.'};
+ const relegated=ar.slice(-3).map(t=>t.id),direct=br.slice(0,2).map(t=>t.id),playoffResults=[];
+ const game=(homeId,awayId,round,label,key,single=false)=>{let r=state.results.find(x=>x.leagueId===b.id&&x.playoff&&x.playoffRoundKey===key);if(!r){r=play(b,{homeId,awayId,round},true);if(r){r.playoff=true;r.playoffLabel=label;r.playoffRoundKey=key;applyRating(r)}}if(r&&single)resolveSingleKnockout(r);if(r&&!playoffResults.some(x=>x.id===r.id))playoffResults.push({...r});return r};
+ game(br[4].id,br[7].id,47,'Quartas de final · 5º x 8º · ida','EN-Q1-I');game(br[7].id,br[4].id,48,'Quartas de final · 5º x 8º · volta','EN-Q1-V');game(br[5].id,br[6].id,49,'Quartas de final · 6º x 7º · ida','EN-Q2-I');game(br[6].id,br[5].id,50,'Quartas de final · 6º x 7º · volta','EN-Q2-V');
+ const q1=playoffWinner(b,br[4].id,br[7].id),q2=playoffWinner(b,br[5].id,br[6].id);if(!q1||!q2)return {error:'Não foi possível concluir as quartas de final da Championship.'};
+ game(br[2].id,q2,49,'Semifinal 1 · ida','EN-S1-I');game(q2,br[2].id,50,'Semifinal 1 · volta','EN-S1-V');game(br[3].id,q1,51,'Semifinal 2 · ida','EN-S2-I');game(q1,br[3].id,52,'Semifinal 2 · volta','EN-S2-V');
+ const s1=playoffWinner(b,br[2].id,q2),s2=playoffWinner(b,br[3].id,q1);if(!s1||!s2)return {error:'Não foi possível concluir as semifinais da Championship.'};
+ const fin=game(s1,s2,53,'Final · jogo único','EN-F',true);if(!fin)return {error:'Não foi possível concluir a final da Championship.'};const champion=fin.hg===fin.ag?fin.penaltyWinnerId:(fin.hg>fin.ag?fin.homeId:fin.awayId);if(!champion)return {error:'Não foi possível definir o vencedor dos playoffs da Championship.'};
+ const promoted=[...direct,champion];a.teamIds=[...new Set([...a.teamIds.filter(id=>!relegated.includes(id)),...promoted])];b.teamIds=[...new Set([...b.teamIds.filter(id=>!promoted.includes(id)),...relegated])];a.lastMovementSeason=a.season;b.lastMovementSeason=b.season;
+ const archived=state.seasons.find(x=>x.leagueId===b.id&&Number(x.season)===(Number(b.season)||1));if(archived)archived.results.push(...playoffResults.filter(r=>!archived.results.some(x=>x.id===r.id)));return {promoted,relegated,playoffResults};
 }
-
 function applySpainPromotionRelegation(){
  const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();const spain=state.leagues.filter(l=>norm(leagueCountry(l))==='espanha');
  const a=spain.find(l=>/la liga ea sports|\bla liga\b/.test(norm((l.name||'')+' '+(l.shortName||'')) )&&!/hypermotion|la liga 2/.test(norm((l.name||'')+' '+(l.shortName||''))));
@@ -534,13 +501,13 @@ function playoffWinner(l,homeId,awayId){
   addGame(rows[2].id,rows[5].id,43,'Semifinal · 3º x 6º · ida','ES-S1-I');addGame(rows[5].id,rows[2].id,44,'Semifinal · 3º x 6º · volta','ES-S1-V');addGame(rows[3].id,rows[4].id,45,'Semifinal · 4º x 5º · ida','ES-S2-I');addGame(rows[4].id,rows[3].id,46,'Semifinal · 4º x 5º · volta','ES-S2-V');
   const w1=playoffWinner(l,rows[2].id,rows[5].id),w2=playoffWinner(l,rows[3].id,rows[4].id);if(w1&&w2)addGame(w1,w2,47,'Final · jogo único · acesso','ES-F',true);
  }else if(type==='england'&&rows.length>=8){
-  const q1=addGame(rows[4].id,rows[7].id,47,'Quartas de final · 5º x 8º','EN-Q1',true),q2=addGame(rows[5].id,rows[6].id,48,'Quartas de final · 6º x 7º','EN-Q2',true);
-  const winnerOf=r=>r?(r.hg===r.ag?(penaltyShootout(r),r.penaltyWinnerId):(r.hg>r.ag?r.homeId:r.awayId)):null;
-  const w1=winnerOf(q1),w2=winnerOf(q2);
+  addGame(rows[4].id,rows[7].id,47,'Quartas de final · 5º x 8º · ida','EN-Q1-I');addGame(rows[7].id,rows[4].id,48,'Quartas de final · 5º x 8º · volta','EN-Q1-V');addGame(rows[5].id,rows[6].id,49,'Quartas de final · 6º x 7º · ida','EN-Q2-I');addGame(rows[6].id,rows[5].id,50,'Quartas de final · 6º x 7º · volta','EN-Q2-V');
+  const w1=playoffWinner(l,rows[4].id,rows[7].id),w2=playoffWinner(l,rows[5].id,rows[6].id);
   if(w1&&w2){addGame(rows[2].id,w2,49,'Semifinal 1 · ida','EN-S1-I');addGame(w2,rows[2].id,50,'Semifinal 1 · volta','EN-S1-V');addGame(rows[3].id,w1,51,'Semifinal 2 · ida','EN-S2-I');addGame(w1,rows[3].id,52,'Semifinal 2 · volta','EN-S2-V');const sw1=playoffWinner(l,rows[2].id,w2),sw2=playoffWinner(l,rows[3].id,w1);if(sw1&&sw2)addGame(sw1,sw2,53,'Final · jogo único','EN-F',true)}
  }
  l.playoffFixtures=(l.playoffFixtures||[]).map(f=>({...f,played:state.results.some(r=>r.leagueId===l.id&&r.playoff&&r.homeId===f.homeId&&r.awayId===f.awayId)}));save();render();
-}function simulateRound(id){let l=state.leagues.find(x=>x.id===id);if(!l||l.seasonCompleted)return;let round=nextRound(l);if(round===null)return alert('Todos os jogos deste campeonato já foram simulados.');let games=l.fixtures.filter(f=>(Number(f.round)||1)===round&&!fixturePlayed(l,f)).map(f=>play(l,f,true)).filter(Boolean);games.forEach(applyRating);if(playedCount(l)>=l.fixtures.length)ensurePlayoffFixtures(l);save();render()}
+}
+function simulateRound(id){let l=state.leagues.find(x=>x.id===id);if(!l||l.seasonCompleted)return;let round=nextRound(l);if(round===null)return alert('Todos os jogos deste campeonato já foram simulados.');let games=l.fixtures.filter(f=>(Number(f.round)||1)===round&&!fixturePlayed(l,f)).map(f=>play(l,f,true)).filter(Boolean);games.forEach(applyRating);if(playedCount(l)>=l.fixtures.length)ensurePlayoffFixtures(l);save();render()}
 function simulateAll(id){let l=state.leagues.find(x=>x.id===id);if(!l||l.seasonCompleted)return;let rounds=[...new Set(l.fixtures.filter(f=>!fixturePlayed(l,f)).map(f=>Number(f.round)||1))].sort((a,b)=>a-b);rounds.forEach(round=>{let games=l.fixtures.filter(f=>(Number(f.round)||1)===round&&!fixturePlayed(l,f)).map(f=>play(l,f,true)).filter(Boolean);games.forEach(applyRating)});if(playedCount(l)>=l.fixtures.length)ensurePlayoffFixtures(l);save();render()}
 function deleteLeague(id){if(confirm('Excluir este campeonato e seus resultados?')){state.leagues=state.leagues.filter(l=>l.id!==id);state.results=state.results.filter(r=>r.leagueId!==id);save();render()}}
 function deleteTeam(id){if(state.leagues.some(l=>l.teamIds.includes(id)))return alert('Este clube participa de um campeonato. Exclua o campeonato primeiro.');if(confirm('Remover este clube?')){state.teams=state.teams.filter(t=>t.id!==id);save();render()}}
