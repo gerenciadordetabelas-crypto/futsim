@@ -229,7 +229,7 @@ const laLiga2Teams=[
  ['Eldense','ELD','Espanha','Comunidade Valenciana','Elda',65,['#00529F','#E30613']],
  ['Las Palmas','LPA','Espanha','Ilhas Canárias','Las Palmas de Gran Canaria',77,['#FFFF00','#00529F']],
  ['Leganés','LEG','Espanha','Comunidade de Madrid','Leganés',75,['#00529F','#FFFFFF']],
- ['Andorra','AND','Andorra','Andorra la Vella','Andorra la Vella',68,['#0000A0','#FFFF00','#E30613']],
+ ['Andorra','AND','Espanha','Catalunha','Andorra la Vella',68,['#0000A0','#FFFF00','#E30613']],
  ['Córdoba','COR','Espanha','Andaluzia','Córdoba',69,['#00843D','#FFFFFF']],
  ['Real Sociedad B','RSB','Espanha','País Basco','San Sebastián',63,['#0067B1','#FFFFFF']],
  ['Cádiz','CAD','Espanha','Andaluzia','Cádiz',74,['#FFFF00','#00529F']],
@@ -307,6 +307,21 @@ if(restoredBase){
   repair(a,aIds,oldA,'Série A','20 clubes em pontos corridos, com jogos de ida e volta, totalizando 38 rodadas. Vitória vale 3 pontos e empate vale 1. O campeão é quem terminar com mais pontos; os quatro últimos são rebaixados.','Pontos Corridos');
   repair(b,bIds,oldB,'Série B','20 clubes em pontos corridos, com jogos de ida e volta, totalizando 38 rodadas. O 1º e o 2º sobem diretamente. O 3º enfrenta o 6º e o 4º enfrenta o 5º em playoffs de ida e volta; os dois vencedores também sobem. Em empate no agregado, o FutSim decide por pênaltis. Os quatro últimos são rebaixados.','Pontos Corridos + Playoffs');
  }
+ if(changed)save();
+}
+
+// Migração de país de registro: Andorra (clube) passa à Espanha; Cardiff, Swansea e Wrexham à Inglaterra.
+{
+ const changes=[['Andorra','Espanha'],['Cardiff City','Inglaterra'],['Swansea City','Inglaterra'],['Wrexham','Inglaterra']];
+ let changed=false;
+ for(const [name,country] of changes){
+  const clubs=state.teams.filter(t=>String(t.name||t.shortName||'').trim().toLowerCase()===name.toLowerCase());
+  for(const club of clubs){if(club.country!==country){club.country=country;changed=true}}
+ }
+ for(const t of championshipTeams){
+  if(['Cardiff City','Swansea City','Wrexham'].includes(t[0]))t[2]='Inglaterra';
+ }
+ for(const t of laLiga2Teams){if(t[0]==='Andorra')t[2]='Espanha'}
  if(changed)save();
 }
 
