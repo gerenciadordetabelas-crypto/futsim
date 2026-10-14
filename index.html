@@ -230,7 +230,7 @@ function endSeason(id){
  }
  save();render();
  let message='Temporada encerrada! O campeão foi '+(rows[0]?.name||'—')+'.';
- if(movement?.promoted)message+='\n\nAcesso/rebaixamento concluído: 2 clubes subiram diretamente da Série B, 2 vagas foram decididas nos playoffs e os 4 últimos da Série A desceram para a Série B.';
+ if(movement?.promoted&&String(leagueCountry(l)||'').toLowerCase()==='inglaterra')message+='\n\nPremier League: os 3 últimos foram rebaixados. Da Championship, 2 clubes subiram diretamente e o campeão dos playoffs conquistou a terceira vaga.';else if(movement?.promoted)message+='\n\nAcesso/rebaixamento concluído: 2 clubes subiram diretamente da Série B, 2 vagas foram decididas nos playoffs e os 4 últimos da Série A desceram para a Série B.';
  else if(movement?.error)message+='\n\nA movimentação entre divisões não foi aplicada: '+movement.error;
  alert(message);
 }
@@ -344,7 +344,7 @@ function finishCountrySeason()
  });
  save();render();
  let message='Temporada finalizada! Todos os campeonatos de '+selectedCountry+' avançaram para a próxima temporada.';
- if(movement?.promoted)message+='\n\nAcesso à Série A: 2 clubes subiram diretamente e 2 vagas foram decididas nos playoffs. Os 4 últimos da Série A foram rebaixados à Série B.';
+ if(movement?.promoted&&String(selectedCountry||'').toLowerCase()==='inglaterra')message+='\n\nPremier League: os 3 últimos foram rebaixados. Da Championship, 2 clubes subiram diretamente e o campeão dos playoffs conquistou a terceira vaga.';else if(movement?.promoted)message+='\n\nAcesso à Série A: 2 clubes subiram diretamente e 2 vagas foram decididas nos playoffs. Os 4 últimos da Série A foram rebaixados à Série B.';
  else if(movement?.error)message+='\n\nAcesso/rebaixamento não aplicado: '+movement.error;
  alert(message);
 }
