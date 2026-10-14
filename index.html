@@ -44,51 +44,35 @@
 <div class="layout"><nav class="nav" id="nav"><button class="active" data-page="inicio">⌂ &nbsp; Visão geral</button><div id="countryNav"></div><button data-page="resultados">◷ &nbsp; Resultados</button><button data-page="sobre">ⓘ &nbsp; Sobre o FutSim</button></nav><main class="content" id="app"></main></div><footer>FutSim · Simulador independente para campeonatos fictícios</footer>
 <script>
 const $=s=>document.querySelector(s);
-const initialTeams=[];
+const initialTeams=[
+["Athletico-PR","CAP","Brasil","Paraná","Curitiba",78,["#E32636","#000000"]],["Atlético-MG","CAM","Brasil","Minas Gerais","Belo Horizonte",84,["#000000","#FFFFFF"]],["Bahia","BAH","Brasil","Bahia","Salvador",79,["#0066B3","#FFFFFF","#D71920"]],["Botafogo","BOT","Brasil","Rio de Janeiro","Rio de Janeiro",82,["#000000","#FFFFFF"]],["Chapecoense","CHA","Brasil","Santa Catarina","Chapecó",70,["#00843D","#FFFFFF"]],["Corinthians","COR","Brasil","São Paulo","São Paulo",81,["#000000","#FFFFFF"]],["Coritiba","CFC","Brasil","Paraná","Curitiba",72,["#006B3F","#FFFFFF"]],["Cruzeiro","CRU","Brasil","Minas Gerais","Belo Horizonte",83,["#003DA5","#FFFFFF"]],["Flamengo","FLA","Brasil","Rio de Janeiro","Rio de Janeiro",88,["#C8102E","#000000"]],["Fluminense","FLU","Brasil","Rio de Janeiro","Rio de Janeiro",82,["#7A263A","#006747","#FFFFFF"]],["Grêmio","GRE","Brasil","Rio Grande do Sul","Porto Alegre",81,["#00AEEF","#000000","#FFFFFF"]],["Internacional","INT","Brasil","Rio Grande do Sul","Porto Alegre",80,["#E30613","#FFFFFF"]],["Mirassol","MIR","Brasil","São Paulo","Mirassol",77,["#00843D","#FFFF00"]],["Palmeiras","PAL","Brasil","São Paulo","São Paulo",89,["#006437","#FFFFFF"]],["Bragantino","RBB","Brasil","São Paulo","Bragança Paulista",78,["#E30613","#FFFFFF","#000000"]],["Remo","REM","Brasil","Pará","Belém",71,["#003DA5","#FFFFFF"]],["Santos","SAN","Brasil","São Paulo","Santos",79,["#000000","#FFFFFF"]],["São Paulo","SAO","Brasil","São Paulo","São Paulo",85,["#E30613","#FFFFFF","#000000"]],["Vasco","VAS","Brasil","Rio de Janeiro","Rio de Janeiro",77,["#000000","#FFFFFF"]],["Vitória","VIT","Brasil","Bahia","Salvador",75,["#E31B23","#000000"]]];
 let state;try{state=JSON.parse(localStorage.getItem('futsim_v2'))}catch(e){}
-if(!state)state={teams:initialTeams.map((t,i)=>({id:i+1,name:t[0],strength:t[1]})),leagues:[],results:[],nextId:100};
+if(!state)state={teams:[],leagues:[],results:[],nextId:100};
 state.teams=Array.isArray(state.teams)?state.teams:[];state.leagues=Array.isArray(state.leagues)?state.leagues:[];state.results=Array.isArray(state.results)?state.results:[];state.seasons=Array.isArray(state.seasons)?state.seasons:[];
-// Remove os clubes de demonstração antigos e instala a base do Brasileirão uma única vez.
-// Não inserir ou remover clubes automaticamente. O cadastro é controlado pelo usuário.
-// Corrige instalações que já tinham a liga criada, mas ainda não tinham os nomes curtos e metadados dos clubes.
-let clubMetadataChanged=false;
-initialTeams.forEach(t=>{const team=state.teams.find(x=>x.shortName===t[0]||x.abbreviation===t[1]);if(!team)return;
- if(team.name!==t[0]){team.name=t[0];clubMetadataChanged=true}
- if(team.shortName!==t[0]){team.shortName=t[0];clubMetadataChanged=true}
- if(team.abbreviation!==t[1]){team.abbreviation=t[1];clubMetadataChanged=true}
- if(team.country!==t[2]){team.country=t[2];clubMetadataChanged=true}
- if(team.stateName!==t[3]){team.stateName=t[3];clubMetadataChanged=true}
- if(team.city!==t[4]){team.city=t[4];clubMetadataChanged=true}
- if(!Array.isArray(team.colors)||JSON.stringify(team.colors)!==JSON.stringify(t[6])){team.colors=t[6];clubMetadataChanged=true}
- if(typeof team.baseStrength!=='number'){team.baseStrength=t[5];clubMetadataChanged=true}
-});
-// Migração definitiva: nomes completos antigos passam a ser os nomes curtos em todo o sistema.
+// Restaura os clubes-base que já faziam parte do FutSim antes da alteração anterior.
+// Não apaga dados do usuário e não cria clubes fora dessas listas históricas.
+let restoredBase=false;
+initialTeams.forEach(t=>{let team=state.teams.find(x=>x.abbreviation===t[1]||x.shortName===t[0]||x.name===t[0]);if(!team){team={id:state.nextId++,name:t[0],shortName:t[0],abbreviation:t[1],country:t[2],stateName:t[3],city:t[4],strength:t[5],baseStrength:t[5],colors:t[6]};state.teams.push(team);restoredBase=true}else{team.name=t[0];team.shortName=t[0];team.abbreviation=t[1];team.country=t[2];team.stateName=t[3];team.city=t[4];team.colors=t[6];if(typeof team.baseStrength!=='number')team.baseStrength=t[5];if(typeof team.strength!=='number')team.strength=t[5]}});
+const serieBTeams=[
+["América Mineiro","AME","Minas Gerais","Belo Horizonte",72,["#006B3F","#FFFFFF"]],["Athletic","ATH","Minas Gerais","São João del-Rei",70,["#000000","#FFFFFF"]],["Atlético Goianiense","ACG","Goiás","Goiânia",73,["#E30613","#000000"]],["Avaí","AVA","Santa Catarina","Florianópolis",71,["#005CA9","#FFFFFF"]],["Botafogo - SP","BFC","São Paulo","Ribeirão Preto",68,["#000000","#FFFFFF"]],["Ceará","CEA","Ceará","Fortaleza",76,["#000000","#FFFFFF"]],["CRB","CRB","Alagoas","Maceió",69,["#E30613","#FFFFFF"]],["Criciúma","CRI","Santa Catarina","Criciúma",73,["#000000","#FFFF00"]],["Cuiabá","CUI","Mato Grosso","Cuiabá",72,["#006B3F","#FFFF00"]],["Fortaleza","FOR","Ceará","Fortaleza",80,["#0000FF","#E30613","#FFFFFF"]],["Goiás","GOI","Goiás","Goiânia",74,["#006B3F","#FFFFFF"]],["Juventude","JUV","Rio Grande do Sul","Caxias do Sul",72,["#006B3F","#FFFFFF"]],["Londrina","LON","Paraná","Londrina",66,["#FFFFFF","#0000FF"]],["Náutico","NAU","Pernambuco","Recife",68,["#E30613","#FFFFFF"]],["Novorizontino","NOV","São Paulo","Novo Horizonte",74,["#000000","#FFFF00"]],["Operário-PR","OPE","Paraná","Ponta Grossa",69,["#000000","#FFFFFF"]],["Ponte Preta","PPT","São Paulo","Campinas",68,["#000000","#FFFFFF"]],["São Bernardo","SBE","São Paulo","São Bernardo do Campo",70,["#FFFF00","#000000"]],["Sport","SPO","Pernambuco","Recife",77,["#E30613","#000000"]],["Vila Nova","VIL","Goiás","Goiânia",72,["#E30613","#FFFFFF"]]
+];
+serieBTeams.forEach(t=>{let team=state.teams.find(x=>x.abbreviation===t[1]||x.name===t[0]||x.shortName===t[0]);if(!team){team={id:state.nextId++,name:t[0],shortName:t[0],abbreviation:t[1],country:"Brasil",stateName:t[2],city:t[3],strength:t[4],baseStrength:t[4],colors:t[5]};state.teams.push(team);restoredBase=true}else{team.name=t[0];team.shortName=t[0];team.abbreviation=t[1];team.country="Brasil";team.stateName=t[2];team.city=t[3];team.colors=t[5];if(typeof team.baseStrength!=="number")team.baseStrength=t[4];if(typeof team.strength!=="number")team.strength=t[4]}});
+if(restoredBase){
+ const aIds=initialTeams.map(t=>state.teams.find(x=>x.abbreviation===t[1]).id);
+ const bIds=serieBTeams.map(t=>state.teams.find(x=>x.abbreviation===t[1]).id);
+ let a=state.leagues.find(l=>l.name==="Campeonato Brasileiro"||l.name==="Brasileirão"||l.name==="Campeonato Brasileiro Série A");
+ if(!a){a={id:state.nextId++,name:"Campeonato Brasileiro",shortName:"Brasileirão",country:"Brasil",kind:"Liga",format:"Pontos corridos",teamIds:aIds,fixtures:buildLeagueFixtures(aIds,2),turns:2,season:1};state.leagues.push(a)}
+ let b=state.leagues.find(l=>/série b/i.test(l.name)||/serie b/i.test(l.name));
+ if(!b){b={id:state.nextId++,name:"Campeonato Brasileiro Série B",shortName:"Série B",country:"Brasil",kind:"Liga",format:"Pontos Corridos + Playoffs",regulation:"20 clubes em ida e volta por pontos corridos (38 rodadas). Os dois primeiros sobem diretamente; do 3º ao 6º disputam playoffs de ida e volta (3º x 6º e 4º x 5º), com os dois vencedores também promovidos.",teamIds:bIds,fixtures:buildLeagueFixtures(bIds,2),turns:2,season:1};state.leagues.push(b)}
+ save();
+}
+// Migração de nomes curtos, sem remover clubes.
 const legacyShortNames={
- 'Club Athletico Paranaense':'Athletico-PR',
- 'Clube Atlético Mineiro':'Atlético-MG',
- 'Esporte Clube Bahia':'Bahia',
- 'Botafogo de Futebol e Regatas':'Botafogo',
- 'Associação Chapecoense de Futebol':'Chapecoense',
- 'Sport Club Corinthians Paulista':'Corinthians',
- 'Coritiba Foot Ball Club':'Coritiba',
- 'Cruzeiro Esporte Clube':'Cruzeiro',
- 'Clube de Regatas do Flamengo':'Flamengo',
- 'Fluminense Football Club':'Fluminense',
- 'Grêmio Foot-Ball Porto Alegrense':'Grêmio',
- 'Sport Club Internacional':'Internacional',
- 'Mirassol Futebol Clube':'Mirassol',
- 'Sociedade Esportiva Palmeiras':'Palmeiras',
- 'Red Bull Bragantino Futebol Ltda.':'Bragantino',
- 'Clube do Remo':'Remo',
- 'Santos Futebol Clube':'Santos',
- 'São Paulo Futebol Clube':'São Paulo',
- 'Club de Regatas Vasco da Gama':'Vasco',
- 'Esporte Clube Vitória':'Vitória'
+ 'Club Athletico Paranaense':'Athletico-PR','Clube Atlético Mineiro':'Atlético-MG','Esporte Clube Bahia':'Bahia','Botafogo de Futebol e Regatas':'Botafogo','Associação Chapecoense de Futebol':'Chapecoense','Sport Club Corinthians Paulista':'Corinthians','Coritiba Foot Ball Club':'Coritiba','Cruzeiro Esporte Clube':'Cruzeiro','Clube de Regatas do Flamengo':'Flamengo','Fluminense Football Club':'Fluminense','Grêmio Foot-Ball Porto Alegrense':'Grêmio','Sport Club Internacional':'Internacional','Mirassol Futebol Clube':'Mirassol','Sociedade Esportiva Palmeiras':'Palmeiras','Red Bull Bragantino Futebol Ltda.':'Bragantino','Clube do Remo':'Remo','Santos Futebol Clube':'Santos','São Paulo Futebol Clube':'São Paulo','Club de Regatas Vasco da Gama':'Vasco','Esporte Clube Vitória':'Vitória'
 };
 let namesNormalized=false;
 state.teams.forEach(team=>{const short=legacyShortNames[team.name]||team.shortName;if(short&&team.name!==short){team.name=short;namesNormalized=true}if(short&&team.shortName!==short){team.shortName=short;namesNormalized=true}});
-if(clubMetadataChanged||namesNormalized)save();
-// Clubes e campeonatos só são criados a partir de ações explícitas do usuário.
+if(namesNormalized)save();
 
 function applyRating(result){let h=state.teams.find(t=>t.id===result.homeId),a=state.teams.find(t=>t.id===result.awayId);if(!h||!a)return;let hs=Number(h.strength)||50,as=Number(a.strength)||50,expected=1/(1+Math.pow(10,(as-hs)/20)),actual=result.hg>result.ag?1:result.hg<result.ag?0:.5,k=3.2,change=k*(actual-expected);h.strength=Math.max(1,Math.min(100,Math.round((hs+change)*10)/10));a.strength=Math.max(1,Math.min(100,Math.round((as-change)*10)/10));result.homeRatingChange=Math.round((h.strength-hs)*10)/10;result.awayRatingChange=Math.round((a.strength-as)*10)/10}
 function save(){localStorage.setItem('futsim_v2',JSON.stringify(state))}
