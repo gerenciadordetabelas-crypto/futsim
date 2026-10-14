@@ -605,6 +605,23 @@ function ensurePlayoffFixtures(l){if(!l||!playoffType(l)||playedCount(l)<l.fixtu
   [[0,1],[2,3]].forEach((p,i)=>{if(w2[p[0]]&&w2[p[1]]){addGame(w2[p[0]],w2[p[1]],39,'Torneio Reduzido · semifinal '+(i+1)+' · ida','PN-SF-'+(i+1)+'-I');addGame(w2[p[1]],w2[p[0]],40,'Torneio Reduzido · semifinal '+(i+1)+' · volta','PN-SF-'+(i+1)+'-V')}});
   const sf=[[0,1],[2,3]].map(p=>w2[p[0]]&&w2[p[1]]?playoffWinner(l,w2[p[0]],w2[p[1]]):null);
   if(sf[0]&&sf[1]){addGame(sf[0],sf[1],41,'Torneio Reduzido · final · ida','PN-RED-F-I');addGame(sf[1],sf[0],42,'Torneio Reduzido · final · volta','PN-RED-F-V')}
+ }else if(type==='argentina-national'){
+  const groupA=argentinaNacionalGroupStandings(l,'A'),groupB=argentinaNacionalGroupStandings(l,'B');
+  if(groupA.length<8||groupB.length<8)return alert('Os dois grupos precisam ter oito classificados.');
+  const winnerSingle=key=>{const r=state.results.find(x=>x.leagueId===l.id&&x.playoff&&x.playoffRoundKey===key);if(!r)return null;resolveSingleKnockout(r);return r.hg===r.ag?r.penaltyWinnerId:(r.hg>r.ag?r.homeId:r.awayId)};
+  const winnerTie=(key,home,away)=>{if(!home||!away)return null;return playoffWinner(l,home,away)};
+  addGame(groupA[0].id,groupB[0].id,35,'Final pelo título · jogo único','PN-FINAL',true);
+  const pairs=[[groupB[4].id,groupA[4].id],[groupA[1].id,groupB[7].id],[groupB[3].id,groupA[5].id],[groupB[1].id,groupA[7].id],[groupA[3].id,groupB[5].id],[groupB[2].id,groupA[6].id],[groupA[2].id,groupB[6].id]];
+  pairs.forEach((p,i)=>addGame(p[0],p[1],36,'Torneio Reduzido · primeira fase · confronto '+(i+1),'PN-R1-'+(i+1),true));
+  const finalResult=state.results.find(r=>r.leagueId===l.id&&r.playoff&&r.playoffRoundKey==='PN-FINAL');
+  const finalWinner=winnerSingle('PN-FINAL'),finalLoser=finalResult&&finalWinner?(finalWinner===finalResult.homeId?finalResult.awayId:finalResult.homeId):null;
+  const w1=pairs.map((p,i)=>winnerSingle('PN-R1-'+(i+1)));
+  const stage2=[[finalLoser,w1[0]],[w1[1],w1[2]],[w1[3],w1[4]],[w1[5],w1[6]]];
+  stage2.forEach((p,i)=>{if(p[0]&&p[1]){addGame(p[0],p[1],37,'Torneio Reduzido · segunda fase · confronto '+(i+1)+' · ida','PN-R2-'+(i+1)+'-I');addGame(p[1],p[0],38,'Torneio Reduzido · segunda fase · confronto '+(i+1)+' · volta','PN-R2-'+(i+1)+'-V')}});
+  const w2=stage2.map((p,i)=>winnerTie('PN-R2-'+(i+1),p[0],p[1]));
+  [[0,1],[2,3]].forEach((p,i)=>{if(w2[p[0]]&&w2[p[1]]){addGame(w2[p[0]],w2[p[1]],39,'Torneio Reduzido · semifinal '+(i+1)+' · ida','PN-SF-'+(i+1)+'-I');addGame(w2[p[1]],w2[p[0]],40,'Torneio Reduzido · semifinal '+(i+1)+' · volta','PN-SF-'+(i+1)+'-V')}});
+  const sf=[[0,1],[2,3]].map((p,i)=>winnerTie('PN-SF-'+(i+1),w2[p[0]],w2[p[1]]));
+  if(sf[0]&&sf[1]){addGame(sf[0],sf[1],41,'Torneio Reduzido · final · ida','PN-RED-F-I');addGame(sf[1],sf[0],42,'Torneio Reduzido · final · volta','PN-RED-F-V')}
  }else if(type==='argentina'){
   const groupA=argentinaGroupStandings(l,'A'),groupB=argentinaGroupStandings(l,'B');
   if(groupA.length<8||groupB.length<8)return alert('Os dois grupos precisam ter oito classificados.');
