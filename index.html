@@ -47,6 +47,19 @@ if(state.brasileiraoSeedVersion!==1){
  if(!league){const fixtures=buildLeagueFixtures(ids,2);league={id:state.nextId++,name:'Campeonato Brasileiro',shortName:'Brasileirão',country:'Brasil',kind:'Liga',format:'Pontos corridos',regulation:'Disputada por vinte clubes em dois turnos. Em cada turno, todos os times jogarão entre si uma única vez. Os jogos do segundo turno serão realizados na mesma ordem do primeiro, apenas com o mando de campo invertido. Não há campeões por turnos, sendo declarado campeão brasileiro o time que obtiver o maior número de pontos após as 38 rodadas.',teamIds:ids,fixtures,turns:2};state.leagues.push(league)}
  state.brasileiraoSeedVersion=1;save()
 }
+// Corrige instalações que já tinham a liga criada, mas ainda não tinham os nomes curtos e metadados dos clubes.
+let clubMetadataChanged=false;
+initialTeams.forEach(t=>{const team=state.teams.find(x=>x.name===t[0]||x.shortName===t[1]||x.abbreviation===t[2]);if(!team)return;
+ if(team.name!==t[0]){team.name=t[0];clubMetadataChanged=true}
+ if(team.shortName!==t[1]){team.shortName=t[1];clubMetadataChanged=true}
+ if(team.abbreviation!==t[2]){team.abbreviation=t[2];clubMetadataChanged=true}
+ if(team.country!==t[3]){team.country=t[3];clubMetadataChanged=true}
+ if(team.stateName!==t[4]){team.stateName=t[4];clubMetadataChanged=true}
+ if(team.city!==t[5]){team.city=t[5];clubMetadataChanged=true}
+ if(!Array.isArray(team.colors)||JSON.stringify(team.colors)!==JSON.stringify(t[7])){team.colors=t[7];clubMetadataChanged=true}
+ if(typeof team.baseStrength!=='number'){team.baseStrength=t[6];clubMetadataChanged=true}
+});
+if(clubMetadataChanged)save();
 function applyRating(result){let h=state.teams.find(t=>t.id===result.homeId),a=state.teams.find(t=>t.id===result.awayId);if(!h||!a)return;let hs=Number(h.strength)||50,as=Number(a.strength)||50,expected=1/(1+Math.pow(10,(as-hs)/20)),actual=result.hg>result.ag?1:result.hg<result.ag?0:.5,k=3.2,change=k*(actual-expected);h.strength=Math.max(1,Math.min(100,Math.round((hs+change)*10)/10));a.strength=Math.max(1,Math.min(100,Math.round((as-change)*10)/10));result.homeRatingChange=Math.round((h.strength-hs)*10)/10;result.awayRatingChange=Math.round((a.strength-as)*10)/10}
 function save(){localStorage.setItem('futsim_v2',JSON.stringify(state))}
 // Migração segura: preserva os campeonatos e placares existentes e recalcula a força dinâmica uma única vez.
