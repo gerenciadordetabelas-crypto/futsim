@@ -59,7 +59,32 @@ initialTeams.forEach(t=>{const team=state.teams.find(x=>x.shortName===t[0]||x.ab
  if(!Array.isArray(team.colors)||JSON.stringify(team.colors)!==JSON.stringify(t[6])){team.colors=t[6];clubMetadataChanged=true}
  if(typeof team.baseStrength!=='number'){team.baseStrength=t[5];clubMetadataChanged=true}
 });
-if(clubMetadataChanged)save();
+// Migração definitiva: nomes completos antigos passam a ser os nomes curtos em todo o sistema.
+const legacyShortNames={
+ 'Club Athletico Paranaense':'Athletico-PR',
+ 'Clube Atlético Mineiro':'Atlético-MG',
+ 'Esporte Clube Bahia':'Bahia',
+ 'Botafogo de Futebol e Regatas':'Botafogo',
+ 'Associação Chapecoense de Futebol':'Chapecoense',
+ 'Sport Club Corinthians Paulista':'Corinthians',
+ 'Coritiba Foot Ball Club':'Coritiba',
+ 'Cruzeiro Esporte Clube':'Cruzeiro',
+ 'Clube de Regatas do Flamengo':'Flamengo',
+ 'Fluminense Football Club':'Fluminense',
+ 'Grêmio Foot-Ball Porto Alegrense':'Grêmio',
+ 'Sport Club Internacional':'Internacional',
+ 'Mirassol Futebol Clube':'Mirassol',
+ 'Sociedade Esportiva Palmeiras':'Palmeiras',
+ 'Red Bull Bragantino Futebol Ltda.':'Bragantino',
+ 'Clube do Remo':'Remo',
+ 'Santos Futebol Clube':'Santos',
+ 'São Paulo Futebol Clube':'São Paulo',
+ 'Club de Regatas Vasco da Gama':'Vasco',
+ 'Esporte Clube Vitória':'Vitória'
+};
+let namesNormalized=false;
+state.teams.forEach(team=>{const short=legacyShortNames[team.name]||team.shortName;if(short&&team.name!==short){team.name=short;namesNormalized=true}if(short&&team.shortName!==short){team.shortName=short;namesNormalized=true}});
+if(clubMetadataChanged||namesNormalized)save();
 function applyRating(result){let h=state.teams.find(t=>t.id===result.homeId),a=state.teams.find(t=>t.id===result.awayId);if(!h||!a)return;let hs=Number(h.strength)||50,as=Number(a.strength)||50,expected=1/(1+Math.pow(10,(as-hs)/20)),actual=result.hg>result.ag?1:result.hg<result.ag?0:.5,k=3.2,change=k*(actual-expected);h.strength=Math.max(1,Math.min(100,Math.round((hs+change)*10)/10));a.strength=Math.max(1,Math.min(100,Math.round((as-change)*10)/10));result.homeRatingChange=Math.round((h.strength-hs)*10)/10;result.awayRatingChange=Math.round((a.strength-as)*10)/10}
 function save(){localStorage.setItem('futsim_v2',JSON.stringify(state))}
 // Migração segura: preserva os campeonatos e placares existentes e recalcula a força dinâmica uma única vez.
