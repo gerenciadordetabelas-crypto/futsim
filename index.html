@@ -59,7 +59,7 @@ const initialTeams=[
 let state;try{state=JSON.parse(localStorage.getItem('futsim_v2'))}catch(e){}
 if(!state)state={teams:[],leagues:[],results:[],nextId:100};
 state.teams=Array.isArray(state.teams)?state.teams:[];state.leagues=Array.isArray(state.leagues)?state.leagues:[];state.results=Array.isArray(state.results)?state.results:[];state.seasons=Array.isArray(state.seasons)?state.seasons:[];
-// Países e divisões iniciais: não cadastra clubes automaticamente.
+// Países e divisões iniciais. Só cadastra os clubes explicitamente solicitados.
 if(!Array.isArray(state.countries))state.countries=[];
 if(!state.countries.includes('Brasil'))state.countries.push('Brasil');
 if(!state.countries.includes('Inglaterra'))state.countries.push('Inglaterra');
@@ -69,6 +69,51 @@ englandDivisions.forEach(([name,shortName])=>{
   state.leagues.push({id:state.nextId++,name,shortName,country:'Inglaterra',kind:'Liga',format:'Pontos corridos',teamIds:[],fixtures:[],turns:2,season:1});
  }
 });
+const premierLeagueTeams=[
+ ['Arsenal','ARS','Grande Londres','Londres',90,['#EF0107','#FFFFFF']],
+ ['Aston Villa','AVL','West Midlands','Birmingham',83,['#670E36','#95BFE5']],
+ ['Bournemouth','BOU','Dorset','Bournemouth',78,['#DA291C','#000000']],
+ ['Brentford','BRE','Grande Londres','Londres',78,['#E30613','#FFFFFF']],
+ ['Brighton','BHA','East Sussex','Brighton',81,['#0057B8','#FFFFFF']],
+ ['Chelsea','CHE','Grande Londres','Londres',86,['#034694','#FFFFFF']],
+ ['Coventry City','COV','West Midlands','Coventry',72,['#87CEEB','#FFFFFF']],
+ ['Crystal Palace','CRY','Grande Londres','Londres',79,['#1B458F','#C4122E']],
+ ['Everton','EVE','Merseyside','Liverpool',76,['#003399','#FFFFFF']],
+ ['Fulham','FUL','Grande Londres','Londres',78,['#000000','#FFFFFF']],
+ ['Ipswich Town','IPS','Suffolk','Ipswich',72,['#0044AA','#FFFFFF']],
+ ['Hull City','HUL','East Riding of Yorkshire','Kingston upon Hull',70,['#F5A623','#000000']],
+ ['Leeds United','LEE','West Yorkshire','Leeds',78,['#FFFFFF','#FFCD00','#1D428A']],
+ ['Liverpool','LIV','Merseyside','Liverpool',91,['#C8102E','#00B2A9']],
+ ['Manchester City','MCI','Grande Manchester','Manchester',92,['#6CABDD','#FFFFFF']],
+ ['Manchester United','MUN','Grande Manchester','Manchester',85,['#DA291C','#FBE122','#000000']],
+ ['Newcastle','NEW','Tyne and Wear','Newcastle upon Tyne',84,['#000000','#FFFFFF']],
+ ['Nottingham Forest','NFO','Nottinghamshire','Nottingham',80,['#E53233','#FFFFFF']],
+ ['Sunderland','SUN','Tyne and Wear','Sunderland',74,['#EB172B','#FFFFFF']],
+ ['Tottenham','TOT','Grande Londres','Londres',84,['#132257','#FFFFFF']]
+];
+const englandPremier=state.leagues.find(l=>l.country==='Inglaterra'&&(l.name==='Premier League'||l.shortName==='Premier League'));
+if(englandPremier&&!Array.isArray(englandPremier.teamIds))englandPremier.teamIds=[];
+if(englandPremier&&englandPremier.teamIds.length===0){
+ const premierIds=premierLeagueTeams.map(t=>{
+  let club=state.teams.find(x=>x.abbreviation===t[1]||x.name===t[0]||x.shortName===t[0]);
+  if(!club){
+   club={id:state.nextId++,name:t[0],shortName:t[0],abbreviation:t[1],country:'Inglaterra',stateName:t[2],city:t[3],strength:t[4],baseStrength:t[4],colors:t[5]};
+   state.teams.push(club);
+  }
+  return club.id;
+ });
+ englandPremier.name='Premier League';
+ englandPremier.shortName='Premier League';
+ englandPremier.country='Inglaterra';
+ englandPremier.kind='Liga';
+ englandPremier.format='Pontos Corridos';
+ englandPremier.regulation='Disputada por 20 clubes em dois turnos, totalizando 38 rodadas. Todos jogam entre si uma vez por turno, com mando de campo invertido no segundo turno. O campeão é o clube com mais pontos ao final das 38 rodadas.';
+ englandPremier.teamIds=premierIds;
+ englandPremier.turns=2;
+ englandPremier.season=Number(englandPremier.season)||1;
+ englandPremier.fixtures=buildLeagueFixtures(premierIds,2);
+ save();
+}
 
 // Restaura os clubes-base que já faziam parte do FutSim antes da alteração anterior.
 // Não apaga dados do usuário e não cria clubes fora dessas listas históricas.
