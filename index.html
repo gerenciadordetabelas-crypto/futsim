@@ -547,6 +547,24 @@ function applySpainPromotionRelegation(){
  const promoted=[...direct,champion];a.teamIds=[...new Set([...a.teamIds.filter(id=>!relegated.includes(id)),...promoted])];b.teamIds=[...new Set([...b.teamIds.filter(id=>!promoted.includes(id)),...relegated])];a.lastMovementSeason=a.season;b.lastMovementSeason=b.season;
  const archived=state.seasons.find(x=>x.leagueId===b.id&&Number(x.season)===(Number(b.season)||1));if(archived)archived.results.push(...playoffResults.filter(r=>!archived.results.some(x=>x.id===r.id)));return {promoted,relegated,playoffResults};
 }
+function applyArgentinaPromotionRelegation(){
+ const leagues=state.leagues.filter(l=>String(leagueCountry(l)||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='argentina');
+ const primera=leagues.filter(isArgentinaLeague),nacional=leagues.find(isArgentinaNacional);
+ if(primera.length<2||!nacional)return {error:'Não encontrei Apertura, Clausura e Primera Nacional.'};
+ if(!primera.every(l=>l.seasonCompleted||playedCount(l)>=l.fixtures.length&&argentinaPlayoffChampion(l))||!argentinaNacionalPlayoffsComplete(nacional))return {error:'Conclua Apertura, Clausura e os playoffs da Primera Nacional antes de aplicar acesso e rebaixamento.'};
+ if(primera.some(l=>l.lastMovementSeason===l.season)&&nacional.lastMovementSeason===nacional.season)return {alreadyApplied:true};
+ const annual=argentinaAnnualStandings(),relegated=annual.slice(-2).map(t=>t.id),champion=argentinaNacionalChampion(nacional);
+ const reducedChampion=playoffWinner(nacional, ...(()=>{const r1=state.results.find(r=>r.leagueId===nacional.id&&r.playoff&&r.playoffRoundKey==='PN-RED-F-I'),r2=state.results.find(r=>r.leagueId===nacional.id&&r.playoff&&r.playoffRoundKey==='PN-RED-F-V');return r1&&r2?[r1.homeId,r2.homeId]:[null,null]})());
+ if(!champion||!reducedChampion)return {error:'Não foi possível identificar o campeão geral e o campeão do Torneio Reduzido da Primera Nacional.'};
+ const promoted=[champion,reducedChampion].filter((id,i,a)=>id!=null&&a.indexOf(id)===i);
+ const currentTop=new Set(primera.flatMap(l=>l.teamIds||[])),currentSecond=new Set(nacional.teamIds||[]);
+ const topIds=[...currentTop].filter(id=>!relegated.includes(id)&&!promoted.includes(id));
+ const secondIds=[...currentSecond].filter(id=>!promoted.includes(id)&&!relegated.includes(id));
+ topIds.push(...promoted.filter(id=>!topIds.includes(id)));secondIds.push(...relegated.filter(id=>!secondIds.includes(id)));
+ primera.forEach(l=>{l.teamIds=topIds.slice();l.lastMovementSeason=l.season});
+ nacional.teamIds=secondIds;nacional.lastMovementSeason=nacional.season;
+ return {promoted,relegated};
+}
 function finishCountrySeason(){
  const leagues=countryLeagues();
  if(!leagues.length)return alert('Este país ainda não tem campeonatos.');
@@ -558,7 +576,7 @@ function finishCountrySeason(){
    state.seasons.push({id:state.nextId++,leagueId:l.id,leagueName:l.name,season:Number(l.season)||1,championId,championName,table:rows.map((t,i)=>({...t,position:i+1})),results,completedAt:new Date().toISOString(),format:l.kind,country:leagueCountry(l)});
  });
  let movement=null;
- if(normalizeCountryForMovement(selectedCountry))movement=applyBrazilPromotionRelegation();else if(String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='inglaterra')movement=applyEnglandPromotionRelegation();else if(String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='espanha')movement=applySpainPromotionRelegation();
+ if(String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='argentina')movement=applyArgentinaPromotionRelegation();else if(normalizeCountryForMovement(selectedCountry))movement=applyBrazilPromotionRelegation();else if(String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='inglaterra')movement=applyEnglandPromotionRelegation();else if(String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='espanha')movement=applySpainPromotionRelegation();
  // Terceiro título argentino: tabela anual somando os pontos de Apertura e Clausura.
  const argentinaPair=leagues.filter(isArgentinaLeague);
  if(String(selectedCountry||'').toLowerCase()==='argentina'&&argentinaPair.length>=2){
