@@ -324,7 +324,7 @@ function applyEnglandPromotionRelegation(){
  return {promoted,relegated,playoffResults};
 }
 
-function finishCountrySeason()
+function finishCountrySeason(){
  const leagues=countryLeagues();
  if(!leagues.length)return alert('Este país ainda não tem campeonatos.');
  if(!leagues.every(l=>l.seasonCompleted||playedCount(l)>=l.fixtures.length))return alert('Finalize a simulação de todos os campeonatos deste país antes de avançar.');
