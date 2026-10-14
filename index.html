@@ -150,7 +150,7 @@ function applyBrazilPromotionRelegation(){
      if(!res)continue;
      agg[home]+=res.hg;agg[away]+=res.ag;
      res.playoff=true;res.playoffLabel=(idx===0?'Playoff 3º x 6º':'Playoff 4º x 5º')+' · '+(leg===0?'ida':'volta');
-     playoffResults.push({...res});
+     playoffResults.push({...res});state.results=state.results.filter(r=>r.id!==res.id);
    }
    let winner;
    if(agg[pair[0]]===agg[pair[1]]){
