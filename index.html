@@ -548,22 +548,33 @@ function applySpainPromotionRelegation(){
  const archived=state.seasons.find(x=>x.leagueId===b.id&&Number(x.season)===(Number(b.season)||1));if(archived)archived.results.push(...playoffResults.filter(r=>!archived.results.some(x=>x.id===r.id)));return {promoted,relegated,playoffResults};
 }
 function applyArgentinaPromotionRelegation(){
- const leagues=state.leagues.filter(l=>String(leagueCountry(l)||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='argentina');
+ const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ const leagues=state.leagues.filter(l=>norm(leagueCountry(l))==='argentina');
  const primera=leagues.filter(isArgentinaLeague),nacional=leagues.find(isArgentinaNacional);
- if(primera.length<2||!nacional)return {error:'Não encontrei Apertura, Clausura e Primera Nacional.'};
+ if(!primera.length||!nacional)return {error:'Não encontrei a Liga Profesional e a Primera Nacional.'};
  if(!primera.every(l=>l.seasonCompleted||playedCount(l)>=l.fixtures.length&&argentinaPlayoffChampion(l))||!argentinaNacionalPlayoffsComplete(nacional))return {error:'Conclua Apertura, Clausura e os playoffs da Primera Nacional antes de aplicar acesso e rebaixamento.'};
- if(primera.some(l=>l.lastMovementSeason===l.season)&&nacional.lastMovementSeason===nacional.season)return {alreadyApplied:true};
- const annual=argentinaAnnualStandings(),relegated=annual.slice(-2).map(t=>t.id),champion=argentinaNacionalChampion(nacional);
- const reducedChampion=playoffWinner(nacional, ...(()=>{const r1=state.results.find(r=>r.leagueId===nacional.id&&r.playoff&&r.playoffRoundKey==='PN-RED-F-I'),r2=state.results.find(r=>r.leagueId===nacional.id&&r.playoff&&r.playoffRoundKey==='PN-RED-F-V');return r1&&r2?[r1.homeId,r2.homeId]:[null,null]})());
- if(!champion||!reducedChampion)return {error:'Não foi possível identificar o campeão geral e o campeão do Torneio Reduzido da Primera Nacional.'};
+ if(primera.every(l=>l.lastMovementSeason===l.season)&&nacional.lastMovementSeason===nacional.season)return {alreadyApplied:true};
+ const annual=argentinaAnnualStandings(),relegated=annual.slice(-2).map(t=>t.id);
+ const champion=argentinaNacionalChampion(nacional);
+ const reducedFinal1=state.results.find(r=>r.leagueId===nacional.id&&r.playoff&&r.playoffRoundKey==='PN-RED-F-I');
+ const reducedFinal2=state.results.find(r=>r.leagueId===nacional.id&&r.playoff&&r.playoffRoundKey==='PN-RED-F-V');
+ let reducedChampion=null;
+ if(reducedFinal1&&reducedFinal2)reducedChampion=playoffWinner(nacional,reducedFinal1.homeId,reducedFinal1.awayId);
+ if(!champion||!reducedChampion)return {error:'Não foi possível identificar os dois clubes promovidos. Verifique o campeão da final pelo título e a final do Torneio Reduzido.'};
  const promoted=[champion,reducedChampion].filter((id,i,a)=>id!=null&&a.indexOf(id)===i);
- const currentTop=new Set(primera.flatMap(l=>l.teamIds||[])),currentSecond=new Set(nacional.teamIds||[]);
- const topIds=[...currentTop].filter(id=>!relegated.includes(id)&&!promoted.includes(id));
- const secondIds=[...currentSecond].filter(id=>!promoted.includes(id)&&!relegated.includes(id));
- topIds.push(...promoted.filter(id=>!topIds.includes(id)));secondIds.push(...relegated.filter(id=>!secondIds.includes(id)));
- primera.forEach(l=>{l.teamIds=topIds.slice();l.lastMovementSeason=l.season});
- nacional.teamIds=secondIds;nacional.lastMovementSeason=nacional.season;
- return {promoted,relegated};
+ if(promoted.length!==2)return {error:'Os dois acessos resultaram no mesmo clube; confira os resultados das finais.'};
+ const topIds=[...new Set(primera.flatMap(l=>l.teamIds||[]))];
+ const secondIds=[...new Set(nacional.teamIds||[])];
+ const relegatedValid=relegated.filter(id=>topIds.includes(id)&&!promoted.includes(id));
+ const promotedValid=promoted.filter(id=>secondIds.includes(id)&&!relegatedValid.includes(id));
+ if(relegatedValid.length!==2||promotedValid.length!==2)return {error:'A movimentação foi cancelada para evitar perder clubes: era esperado encontrar 2 rebaixados na primeira divisão e 2 promovidos na Primera Nacional.'};
+ const nextTop=topIds.filter(id=>!relegatedValid.includes(id));
+ const nextSecond=secondIds.filter(id=>!promotedValid.includes(id));
+ nextTop.push(...promotedValid);nextSecond.push(...relegatedValid);
+ if(nextTop.length!==topIds.length||nextSecond.length!==secondIds.length)return {error:'A quantidade de clubes não bateu; nenhuma troca foi aplicada.'};
+ primera.forEach(l=>{l.teamIds=nextTop.slice();l.lastMovementSeason=l.season});
+ nacional.teamIds=nextSecond.slice();nacional.lastMovementSeason=nacional.season;
+ return {promoted:promotedValid,relegated:relegatedValid};
 }
 function finishCountrySeason(){
  const leagues=countryLeagues();
