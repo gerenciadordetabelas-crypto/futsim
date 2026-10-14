@@ -107,15 +107,73 @@ function buildLeagueFixtures(ids,turns){let rotation=ids.slice();if(rotation.len
 function createLeague(name,ids,kind,turns=2,country=null){if(ids.length<2)return alert('Escolha pelo menos 2 clubes.');let fixtures;if(kind==='Liga'){fixtures=buildLeagueFixtures(ids,turns)}else{fixtures=[];let round=1;for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++)fixtures.push({homeId:ids[i],awayId:ids[j],round:round++})}let l={id:state.nextId++,name,kind,country:country||state.teams.find(t=>ids.includes(t.id))?.country||selectedCountry||'Brasil',season:1,teamIds:ids,fixtures,turns:kind==='Liga'?turns:1};state.leagues.push(l);save();render();alert(kind==='Liga'?'Liga criada com rodadas organizadas. Boa temporada!':'Campeonato criado! Já pode simular os jogos.')}
 function endSeason(id){const l=state.leagues.find(x=>x.id===id);if(!l)return;if(l.seasonCompleted)return alert('Temporada já encerrada.');if(playedCount(l)<l.fixtures.length)return alert('Só é possível encerrar depois de todos os jogos.');if(!confirm('Encerrar a temporada '+(l.season||1)+' de '+l.name+' e guardar o campeão no histórico?'))return;const rows=standings(l),results=state.results.filter(r=>r.leagueId===l.id).map(r=>({...r})),seasonNo=Number(l.season)||1;state.seasons.push({id:state.nextId++,leagueId:l.id,leagueName:l.name,season:seasonNo,championId:rows[0]?.id??null,championName:rows[0]?.name??'Sem campeão',table:rows.map((t,i)=>({...t,position:i+1})),results,completedAt:new Date().toISOString(),format:l.kind});l.seasonCompleted=true;save();render();alert('Temporada encerrada! Use “Próxima temporada” para continuar.')}
 function applyBrazilPromotionRelegation(){
- const a=state.leagues.find(l=>l.country==="Brasil"&&(/Série A/i.test(l.name)||l.name==="Campeonato Brasileiro"||l.name==="Brasileirão"));
- const b=state.leagues.find(l=>l.country==="Brasil"&&(/Série B/i.test(l.name)||l.name==="Campeonato Brasileiro Série B"));
- if(!a||!b)return null;const aRows=standings(a),bRows=standings(b);if(aRows.length<4||bRows.length<6)return null;
- const relegated=aRows.slice(-4).map(t=>t.id),direct=bRows.slice(0,2).map(t=>t.id),pairs=[[bRows[2].id,bRows[5].id],[bRows[3].id,bRows[4].id]],playoffWinners=[],playoffResults=[];
- pairs.forEach((pair,idx)=>{const agg={[pair[0]]:0,[pair[1]]:0};for(let leg=0;leg<2;leg++){const home=leg===0?pair[0]:pair[1],away=leg===0?pair[1]:pair[0],res=play({id:b.id},{homeId:home,awayId:away,round:39+idx*2+leg});if(res){agg[home]+=res.hg;agg[away]+=res.ag;playoffResults.push({...res,playoff:true,playoffLabel:(idx===0?"Playoff 3º x 6º":"Playoff 4º x 5º")+" · "+(leg===0?"ida":"volta")})}}let winner;if(agg[pair[0]]===agg[pair[1]]){const t1=state.teams.find(t=>t.id===pair[0]),t2=state.teams.find(t=>t.id===pair[1]);winner=(Number(t1?.strength)||50)>=(Number(t2?.strength)||50)?pair[0]:pair[1]}else winner=agg[pair[0]]>agg[pair[1]]?pair[0]:pair[1];playoffWinners.push(winner)});
- const promoted=[...direct,...playoffWinners];a.teamIds=[...a.teamIds.filter(id=>!relegated.includes(id)),...promoted];b.teamIds=[...b.teamIds.filter(id=>!promoted.includes(id)),...relegated];
- const archived=state.seasons.find(s=>s.leagueId===b.id&&s.season===(Number(b.season)||1));if(archived)archived.results.push(...playoffResults);return {promoted,relegated};
+ // A movimentação só usa clubes já cadastrados e só acontece ao fechar a temporada nacional.
+ const normalize=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ const brazil=state.leagues.filter(l=>normalize(leagueCountry(l))==='brasil');
+ const a=brazil.find(l=>/serie\s*a/.test(normalize(l.name))||['campeonato brasileiro','brasileirao'].includes(normalize(l.name)));
+ const b=brazil.find(l=>/serie\s*b/.test(normalize(l.name)));
+ if(!a||!b||a.id===b.id)return {error:'Não encontrei campeonatos identificáveis como Série A e Série B do Brasil.'};
+ if(a.kind!=='Liga'||b.kind!=='Liga')return {error:'Série A e Série B precisam estar configuradas no formato Liga.'};
+ if(playedCount(a)<a.fixtures.length||playedCount(b)<b.fixtures.length)return {error:'É necessário concluir todos os jogos da Série A e da Série B antes de definir acesso e rebaixamento.'};
+ if(a.seasonCompleted&&b.seasonCompleted&&a.lastMovementSeason===a.season&&b.lastMovementSeason===b.season)return {alreadyApplied:true};
+ const aRows=standings(a),bRows=standings(b);
+ if(aRows.length<4||bRows.length<6)return {error:'Não há clubes suficientes nas tabelas para aplicar acesso e rebaixamento.'};
+ const relegated=aRows.slice(-4).map(t=>t.id);
+ const direct=bRows.slice(0,2).map(t=>t.id);
+ const pairs=[[bRows[2].id,bRows[5].id],[bRows[3].id,bRows[4].id]];
+ const playoffWinners=[],playoffResults=[];
+ for(let idx=0;idx<pairs.length;idx++){
+   const pair=pairs[idx],agg={[pair[0]]:0,[pair[1]]:0};
+   for(let leg=0;leg<2;leg++){
+     const home=leg===0?pair[0]:pair[1],away=leg===0?pair[1]:pair[0];
+     const res=play({id:b.id},{homeId:home,awayId:away,round:39+idx*2+leg});
+     if(!res)continue;
+     agg[home]+=res.hg;agg[away]+=res.ag;
+     res.playoff=true;res.playoffLabel=(idx===0?'Playoff 3º x 6º':'Playoff 4º x 5º')+' · '+(leg===0?'ida':'volta');
+     playoffResults.push({...res});
+   }
+   let winner;
+   if(agg[pair[0]]===agg[pair[1]]){
+     // Desempate determinístico e transparente quando o agregado termina igual.
+     const p1=bRows.find(t=>t.id===pair[0]),p2=bRows.find(t=>t.id===pair[1]);
+     winner=(p1.pts!==p2.pts?(p1.pts>p2.pts?pair[0]:pair[1]):(p1.v!==p2.v?(p1.v>p2.v?pair[0]:pair[1]):pair[0]));
+   }else winner=agg[pair[0]]>agg[pair[1]]?pair[0]:pair[1];
+   playoffWinners.push(winner);
+ }
+ const promoted=[...direct,...playoffWinners];
+ // Substituição em lote: conserva todos os clubes existentes e evita duplicações.
+ a.teamIds=[...new Set([...a.teamIds.filter(id=>!relegated.includes(id)),...promoted])];
+ b.teamIds=[...new Set([...b.teamIds.filter(id=>!promoted.includes(id)),...relegated])];
+ a.lastMovementSeason=a.season;b.lastMovementSeason=b.season;
+ const archived=state.seasons.find(s=>s.leagueId===b.id&&Number(s.season)===(Number(b.season)||1));
+ if(archived)archived.results.push(...playoffResults);
+ return {promoted,relegated,playoffResults};
 }
-function finishCountrySeason(){const leagues=countryLeagues();if(!leagues.length)return alert('Este país ainda não tem campeonatos.');if(!leagues.every(l=>l.seasonCompleted||playedCount(l)>=l.fixtures.length))return alert('Finalize a simulação de todos os campeonatos deste país antes de avançar.');const pending=leagues.filter(l=>!l.seasonCompleted);if(pending.length&&!confirm('Finalizar a temporada de '+selectedCountry+' e avançar todos os campeonatos para a próxima temporada? Os resultados serão arquivados e o histórico será preservado.'))return;pending.forEach(l=>{const rows=standings(l),results=state.results.filter(r=>r.leagueId===l.id).map(r=>({...r}));state.seasons.push({id:state.nextId++,leagueId:l.id,leagueName:l.name,season:Number(l.season)||1,championId:rows[0]?.id??null,championName:rows[0]?.name??'Sem campeão',table:rows.map((t,i)=>({...t,position:i+1})),results,completedAt:new Date().toISOString(),format:l.kind,country:leagueCountry(l)});});const movement=selectedCountry==='Brasil'?applyBrazilPromotionRelegation():null;leagues.forEach(l=>{state.results=state.results.filter(r=>r.leagueId!==l.id);l.season=(Number(l.season)||1)+1;l.seasonCompleted=false;l.fixtures=l.kind==='Liga'?buildLeagueFixtures(l.teamIds,l.turns||2):buildLeagueFixtures(l.teamIds,1)});save();render();alert('Temporada finalizada! Todos os campeonatos de '+selectedCountry+' avançaram para a próxima temporada.'+(movement?'\n\nA Série B promoveu 2 clubes diretamente e definiu mais 2 nos playoffs; os 4 últimos da Série A foram rebaixados.':''))}
+function finishCountrySeason(){
+ const leagues=countryLeagues();
+ if(!leagues.length)return alert('Este país ainda não tem campeonatos.');
+ if(!leagues.every(l=>l.seasonCompleted||playedCount(l)>=l.fixtures.length))return alert('Finalize a simulação de todos os campeonatos deste país antes de avançar.');
+ const pending=leagues.filter(l=>!l.seasonCompleted);
+ if(pending.length&&!confirm('Finalizar a temporada de '+selectedCountry+' e avançar todos os campeonatos para a próxima temporada? Os resultados serão arquivados e o histórico será preservado.'))return;
+ pending.forEach(l=>{
+   const rows=standings(l),results=state.results.filter(r=>r.leagueId===l.id&&!r.playoff).map(r=>({...r}));
+   state.seasons.push({id:state.nextId++,leagueId:l.id,leagueName:l.name,season:Number(l.season)||1,championId:rows[0]?.id??null,championName:rows[0]?.name??'Sem campeão',table:rows.map((t,i)=>({...t,position:i+1})),results,completedAt:new Date().toISOString(),format:l.kind,country:leagueCountry(l)});
+ });
+ let movement=null;
+ if(normalizeCountryForMovement(selectedCountry))movement=applyBrazilPromotionRelegation();
+ // Preserva resultados históricos; só limpa os resultados da temporada ativa após arquivá-los.
+ leagues.forEach(l=>{
+   state.results=state.results.filter(r=>r.leagueId!==l.id);
+   l.season=(Number(l.season)||1)+1;l.seasonCompleted=false;
+   l.fixtures=l.kind==='Liga'?buildLeagueFixtures(l.teamIds,l.turns||2):buildLeagueFixtures(l.teamIds,1);
+ });
+ save();render();
+ let message='Temporada finalizada! Todos os campeonatos de '+selectedCountry+' avançaram para a próxima temporada.';
+ if(movement?.promoted)message+='\n\nAcesso à Série A: 2 clubes subiram diretamente e 2 vagas foram decididas nos playoffs. Os 4 últimos da Série A foram rebaixados à Série B.';
+ else if(movement?.error)message+='\n\nAcesso/rebaixamento não aplicado: '+movement.error;
+ alert(message);
+}
+function normalizeCountryForMovement(country){return String(country||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='brasil'}
 function startNextSeason(id){const l=state.leagues.find(x=>x.id===id);if(!l||!l.seasonCompleted)return;if(!confirm('Começar a temporada '+((Number(l.season)||1)+1)+'? O histórico será preservado e os resultados desta competição serão reiniciados.'))return;state.results=state.results.filter(r=>r.leagueId!==l.id);l.season=(Number(l.season)||1)+1;l.seasonCompleted=false;l.fixtures=l.kind==='Liga'?buildLeagueFixtures(l.teamIds,l.turns||2):buildLeagueFixtures(l.teamIds,1);save();render();alert('Temporada '+l.season+' iniciada!')}
 
 function fixturePlayed(l,f){return state.results.some(r=>r.leagueId===l.id&&r.homeId===f.homeId&&r.awayId===f.awayId)}
