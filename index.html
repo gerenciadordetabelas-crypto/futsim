@@ -280,6 +280,36 @@ if(englandChampionship){
 }
 }
 
+// Revalida a La Liga depois da limpeza de duplicados: garante os 20 clubes e IDs únicos.
+{
+ const usedIds=new Set(state.teams.map(t=>String(t.id)));
+ const repairedLaLigaIds=laLigaTeams.map(t=>{
+  let club=state.teams.find(x=>String(x.country||'').toLowerCase()==='espanha'&&String(x.name||x.shortName||'').trim().toLocaleLowerCase()===t[0].toLocaleLowerCase());
+  if(!club)club=state.teams.find(x=>String(x.name||x.shortName||'').trim().toLocaleLowerCase()===t[0].toLocaleLowerCase());
+  if(!club){
+   let id=Number(state.nextId)||1;
+   while(usedIds.has(String(id)))id++;
+   state.nextId=id+1;
+   club={id,name:t[0],shortName:t[0],abbreviation:t[1],country:'Espanha',stateName:t[2],city:t[3],strength:t[4],baseStrength:t[4],colors:t[5]};
+   state.teams.push(club);
+   usedIds.add(String(id));
+  }else{
+   club.name=t[0];club.shortName=t[0];club.abbreviation=t[1];club.country='Espanha';club.stateName=t[2];club.city=t[3];club.colors=t[5];
+   if(typeof club.baseStrength!=='number')club.baseStrength=t[4];
+   if(typeof club.strength!=='number')club.strength=t[4];
+  }
+  return club.id;
+ });
+ const oldIds=Array.isArray(laLiga.teamIds)?laLiga.teamIds:[];
+ const membershipChanged=oldIds.length!==20||repairedLaLigaIds.some((id,i)=>oldIds[i]!==id);
+ laLiga.teamIds=repairedLaLigaIds;
+ laLiga.name='La Liga EA Sports';laLiga.shortName='La Liga';laLiga.country='Espanha';laLiga.kind='Liga';laLiga.format='Pontos Corridos';laLiga.turns=2;
+ if(membershipChanged&&state.results.every(r=>r.leagueId!==laLiga.id)){
+  laLiga.fixtures=buildLeagueFixtures(repairedLaLigaIds,2);
+ }
+ save();
+}
+
 // Migração de nomes curtos, sem remover clubes.
 const legacyShortNames={
  'Club Athletico Paranaense':'Athletico-PR','Clube Atlético Mineiro':'Atlético-MG','Esporte Clube Bahia':'Bahia','Botafogo de Futebol e Regatas':'Botafogo','Associação Chapecoense de Futebol':'Chapecoense','Sport Club Corinthians Paulista':'Corinthians','Coritiba Foot Ball Club':'Coritiba','Cruzeiro Esporte Clube':'Cruzeiro','Clube de Regatas do Flamengo':'Flamengo','Fluminense Football Club':'Fluminense','Grêmio Foot-Ball Porto Alegrense':'Grêmio','Sport Club Internacional':'Internacional','Mirassol Futebol Clube':'Mirassol','Sociedade Esportiva Palmeiras':'Palmeiras','Red Bull Bragantino Futebol Ltda.':'Bragantino','Clube do Remo':'Remo','Santos Futebol Clube':'Santos','São Paulo Futebol Clube':'São Paulo','Club de Regatas Vasco da Gama':'Vasco','Esporte Clube Vitória':'Vitória'
