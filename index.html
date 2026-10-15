@@ -605,6 +605,18 @@ const botola2League=state.leagues.find(l=>String(leagueCountry(l)||l.country||''
 if(!state.leagues.includes(botola2League))state.leagues.push(botola2League);
 const botola2Ids=botola2Teams.map(t=>{let club=state.teams.find(x=>String(teamCountry(x)||x.country||'').trim()==='Marrocos'&&String(x.name||'').trim().toLowerCase()===t[0].toLowerCase());if(!club){club={id:state.nextId++,name:t[0],shortName:t[0],abbreviation:t[1],country:'Marrocos',stateName:t[2],city:t[3],strength:t[4],baseStrength:t[4],colors:t[5]};state.teams.push(club)}else{club.shortName=t[0];club.abbreviation=t[1];club.country='Marrocos';club.stateName=t[2];club.city=t[3];club.colors=t[5];if(typeof club.baseStrength!=='number')club.baseStrength=t[4];if(typeof club.strength!=='number')club.strength=t[4]}return club.id});
 if(!Array.isArray(botola2League.teamIds)||botola2League.teamIds.length===0){botola2League.teamIds=botola2Ids.slice();botola2League.season=Number(botola2League.season)||1;botola2League.turns=2;botola2League.kind='Liga';botola2League.format='Pontos Corridos + Playoffs';botola2League.regulation='16 clubes, ida e volta (30 rodadas). 1º e 2º sobem diretamente; 3º e 4º disputam playoffs de acesso contra o 14º e 13º da Botola Pro Inwi, respectivamente.';botola2League.fixtures=buildLeagueFixtures(botola2League.teamIds,2);botola2League.playoffFixtures=[];save()}
+// Normaliza as duas divisões marroquinas existentes sem apagar resultados ou clubes promovidos/rebaixados.
+for(const [league,initialIds,name,shortName,regulation] of [
+ [botolaLeague,botolaIds,'Botola Pro Inwi','Botola Pro Inwi','16 clubes; pontos corridos em ida e volta (30 rodadas). 15º e 16º rebaixados diretamente; 13º e 14º disputam playoffs de permanência contra 4º e 3º da Botola Pro 2, respectivamente.'],
+ [botola2League,botola2Ids,'Botola Pro 2 Inwi','Botola Pro 2 Inwi','16 clubes; pontos corridos em ida e volta (30 rodadas). 1º e 2º sobem diretamente; 3º e 4º disputam playoffs de ida e volta contra 14º e 13º da Botola Pro Inwi, respectivamente. Empate no agregado decidido por pênaltis.']
+]){
+ league.name=name;league.shortName=shortName;league.country='Marrocos';league.kind='Liga';league.turns=2;league.format='Pontos Corridos + Playoffs';league.regulation=regulation;
+ if(!Array.isArray(league.teamIds)||league.teamIds.length!==16||new Set(league.teamIds).size!==16||league.teamIds.some(id=>!state.teams.some(t=>t.id===id)))league.teamIds=initialIds.slice();
+ const expected=buildLeagueFixtures(league.teamIds,2);
+ const valid=Array.isArray(league.fixtures)&&league.fixtures.length===expected.length&&league.fixtures.every(f=>league.teamIds.includes(f.homeId)&&league.teamIds.includes(f.awayId))&&league.fixtures.every(f=>expected.some(e=>e.homeId===f.homeId&&e.awayId===f.awayId&&Number(e.round)===Number(f.round)));
+ if(!valid){league.fixtures=expected;league.playoffFixtures=[];league.seasonCompleted=false;league.lastMovementSeason=null;state.results=state.results.filter(r=>r.leagueId!==league.id);state.seasons=state.seasons.filter(x=>x.leagueId!==league.id)}
+}
+save();
 const portugalTeams=[
  ['Porto','FCP','Norte','Porto',92,['#00529F','#FFFFFF']],
  ['Benfica','BEN','Lisboa','Lisboa',94,['#E30613','#FFFFFF']],
