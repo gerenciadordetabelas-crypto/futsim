@@ -552,6 +552,32 @@ function resultRow(r){let h=state.teams.find(t=>t.id===r.homeId),a=state.teams.f
 function play(l,f,deferRating=false){let h=state.teams.find(t=>t.id===f.homeId),a=state.teams.find(t=>t.id===f.awayId);if(!h||!a)return null;let hs=Number(h.strength)||50,as=Number(a.strength)||50,diff=(hs-as)/100;let hg=Math.min(8,poisson(Math.max(.25,1.3+diff*1.7+.22))),ag=Math.min(8,poisson(Math.max(.2,1.15-diff*1.5)));let result={id:state.nextId++,leagueId:l.id,homeId:h.id,awayId:a.id,hg,ag,round:f.round,homeRatingBefore:hs,awayRatingBefore:as};state.results.push(result);if(!deferRating)applyRating(result);return result}
 function buildLeagueFixtures(ids,turns){let rotation=ids.slice();if(rotation.length%2)rotation.push(null);let n=rotation.length,half=n/2,fixtures=[],round=1;for(let r=0;r<n-1;r++){for(let i=0;i<half;i++){let a=rotation[i],b=rotation[n-1-i];if(a!==null&&b!==null){let home=(r+i)%2===0?a:b,away=(r+i)%2===0?b:a;fixtures.push({homeId:home,awayId:away,round})}}let fixed=rotation[0];let rest=rotation.slice(1);rest.unshift(rest.pop());rotation=[fixed,...rest];round++}if(turns===2){const first=fixtures.slice();first.forEach(f=>fixtures.push({homeId:f.awayId,awayId:f.homeId,round:f.round+n-1}))}return fixtures}
 function createLeague(name,ids,kind,turns=2,country=null){if(ids.length<2)return alert('Escolha pelo menos 2 clubes.');let fixtures;if(kind==='Liga'){fixtures=buildLeagueFixtures(ids,turns)}else{fixtures=[];let round=1;for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++)fixtures.push({homeId:ids[i],awayId:ids[j],round:round++})}let l={id:state.nextId++,name,kind,country:country||state.teams.find(t=>ids.includes(t.id))?.country||selectedCountry||'Brasil',season:1,teamIds:ids,fixtures,turns:kind==='Liga'?turns:1};state.leagues.push(l);save();render();alert(kind==='Liga'?'Liga criada com rodadas organizadas. Boa temporada!':'Campeonato criado! Já pode simular os jogos.')}
+// Portugal: Primeira Liga conforme os 18 clubes fornecidos; não cria clubes extras.
+if(!state.countries.includes('Portugal'))state.countries.push('Portugal');
+const portugalTeams=[
+ ['Porto','FCP','Norte','Porto',92,['#00529F','#FFFFFF']],
+ ['Benfica','BEN','Lisboa','Lisboa',94,['#E30613','#FFFFFF']],
+ ['Sporting CP','SCP','Lisboa','Lisboa',92,['#008B45','#FFFFFF']],
+ ['Santa Clara','SCL','Açores','Ponta Delgada',73,['#E30613','#FFFFFF']],
+ ['Arouca','ARO','Norte','Arouca',72,['#FFD700','#000000']],
+ ['Académico de Viseu','ACV','Centro','Viseu',67,['#000000','#FFFFFF']],
+ ['Alverca','ALV','Ribatejo e Oeste','Alverca do Ribatejo',68,['#E30613','#FFFFFF']],
+ ['Gil Vicente','GIL','Norte','Barcelos',75,['#E30613','#000000']],
+ ['Braga','BRA','Norte','Braga',86,['#E30613','#FFFFFF']],
+ ['Estrela da Amadora','EAM','Lisboa','Amadora',71,['#E30613','#FFFFFF']],
+ ['Marítimo','MRT','Madeira','Funchal',71,['#008B45','#E30613']],
+ ['Moreirense','MOR','Norte','Moreira de Cónegos',73,['#008B45','#FFFFFF']],
+ ['Famalicão','FAM','Norte','Vila Nova de Famalicão',76,['#0055A4','#FFFFFF']],
+ ['Rio Ave','RAV','Norte','Vila do Conde',74,['#008B45','#FFFFFF']],
+ ['Vitória de Guimarães','VSC','Norte','Guimarães',82,['#000000','#FFFFFF']],
+ ['Nacional da Madeira','NAC','Madeira','Funchal',70,['#000000','#FFFFFF']],
+ ['Casa Pia','CAS','Lisboa','Lisboa',72,['#000000','#FFFFFF']],
+ ['Estoril Praia','EST','Lisboa','Estoril',73,['#FFD700','#0055A4']]
+];
+let portugalLeague=state.leagues.find(l=>String(l.country||'').trim()==='Portugal'&&(/^primeira liga$/i.test(String(l.name||'').trim())||/^liga portugal betclic$/i.test(String(l.name||'').trim())||/^primeira liga$/i.test(String(l.shortName||'').trim())));
+if(!portugalLeague){portugalLeague={id:state.nextId++,name:'Liga Portugal Betclic',shortName:'Primeira Liga',country:'Portugal',kind:'Liga',format:'Pontos corridos',teamIds:[],fixtures:[],turns:2,season:1};state.leagues.push(portugalLeague)}
+const portugalIds=portugalTeams.map(t=>{let club=state.teams.find(x=>String(teamCountry(x)||'').trim()==='Portugal'&&String(x.name||'').trim().toLowerCase()===t[0].toLowerCase());if(!club){club={id:state.nextId++,name:t[0],shortName:t[0],abbreviation:t[1],country:'Portugal',stateName:t[2],city:t[3],strength:t[4],baseStrength:t[4],colors:t[5]};state.teams.push(club)}else{club.shortName=t[0];club.abbreviation=t[1];club.country='Portugal';club.stateName=t[2];club.city=t[3];club.colors=t[5];if(typeof club.baseStrength!=='number')club.baseStrength=t[4];if(typeof club.strength!=='number')club.strength=t[4]}return club.id});
+if(!Array.isArray(portugalLeague.teamIds)||portugalLeague.teamIds.length===0){portugalLeague.name='Liga Portugal Betclic';portugalLeague.shortName='Primeira Liga';portugalLeague.country='Portugal';portugalLeague.kind='Liga';portugalLeague.format='Pontos corridos';portugalLeague.regulation='18 clubes, ida e volta. Ao final, os 2 últimos são rebaixados e o 16º disputa os playoffs pela permanência.';portugalLeague.teamIds=portugalIds;portugalLeague.turns=2;portugalLeague.season=Number(portugalLeague.season)||1;portugalLeague.fixtures=buildLeagueFixtures(portugalIds,2);save()}
 function applyFrancePromotionRelegation(){
  const a=state.leagues.find(l=>String(leagueCountry(l)||'').trim().toLowerCase()==='frança'&&String(l.name||'').trim().toLowerCase()==='ligue 1');
  const b=state.leagues.find(l=>String(leagueCountry(l)||'').trim().toLowerCase()==='frança'&&String(l.name||'').trim().toLowerCase()==='ligue 2');
