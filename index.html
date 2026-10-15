@@ -550,26 +550,31 @@ function play(l,f,deferRating=false){let h=state.teams.find(t=>t.id===f.homeId),
 function buildLeagueFixtures(ids,turns){let rotation=ids.slice();if(rotation.length%2)rotation.push(null);let n=rotation.length,half=n/2,fixtures=[],round=1;for(let r=0;r<n-1;r++){for(let i=0;i<half;i++){let a=rotation[i],b=rotation[n-1-i];if(a!==null&&b!==null){let home=(r+i)%2===0?a:b,away=(r+i)%2===0?b:a;fixtures.push({homeId:home,awayId:away,round})}}let fixed=rotation[0];let rest=rotation.slice(1);rest.unshift(rest.pop());rotation=[fixed,...rest];round++}if(turns===2){const first=fixtures.slice();first.forEach(f=>fixtures.push({homeId:f.awayId,awayId:f.homeId,round:f.round+n-1}))}return fixtures}
 function createLeague(name,ids,kind,turns=2,country=null){if(ids.length<2)return alert('Escolha pelo menos 2 clubes.');let fixtures;if(kind==='Liga'){fixtures=buildLeagueFixtures(ids,turns)}else{fixtures=[];let round=1;for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++)fixtures.push({homeId:ids[i],awayId:ids[j],round:round++})}let l={id:state.nextId++,name,kind,country:country||state.teams.find(t=>ids.includes(t.id))?.country||selectedCountry||'Brasil',season:1,teamIds:ids,fixtures,turns:kind==='Liga'?turns:1};state.leagues.push(l);save();render();alert(kind==='Liga'?'Liga criada com rodadas organizadas. Boa temporada!':'Campeonato criado! Já pode simular os jogos.')}
 function applyFrancePromotionRelegation(){
- const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
- const france=state.leagues.filter(l=>norm(leagueCountry(l))==='franca');
- const a=france.find(l=>/^ligue 1$/i.test(String(l.name||'').trim())),b=france.find(l=>/^ligue 2$/i.test(String(l.name||'').trim()));
+ const norm=s=>String(s||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().trim();
+ const a=state.leagues.find(l=>norm(leagueCountry(l))==='franca'&&norm(l.name)==='ligue 1');
+ const b=state.leagues.find(l=>norm(leagueCountry(l))==='franca'&&norm(l.name)==='ligue 2');
  if(!a||!b)return {error:'Não encontrei a Ligue 1 e a Ligue 2 da França.'};
- if(a.teamIds.length!==18||b.teamIds.length!==18)return {error:'A Ligue 1 e a Ligue 2 precisam ter 18 clubes cada; movimentação cancelada para preservar os elencos.'};
- if((!a.seasonCompleted&&playedCount(a)<a.fixtures.length)||(!b.seasonCompleted&&playedCount(b)<b.fixtures.length))return {pending:true,error:'Finalize as temporadas das duas divisões francesas antes de aplicar a movimentação.'};
  if(a.lastMovementSeason===a.season&&b.lastMovementSeason===b.season)return {alreadyApplied:true};
- if(playedCount(a)<a.fixtures.length||playedCount(b)<b.fixtures.length)return {error:'Todos os jogos da fase regular das duas divisões precisam estar concluídos.'};
- const ar=standings(a),br=standings(b);if(ar.length!==18||br.length!==18)return {error:'As classificações francesas estão incompletas.'};
+ const ar=standings(a),br=standings(b);
+ if(ar.length<18||br.length<18||!Array.isArray(a.teamIds)||!Array.isArray(b.teamIds)||a.teamIds.length!==18||b.teamIds.length!==18)return {error:'As duas divisões precisam ter 18 clubes e classificação completa.'};
+ // Ao encerrar a temporada: dois últimos da Ligue 1 descem e dois primeiros da Ligue 2 sobem.
+ const relegated=[ar[16].id,ar[17].id];
+ const promoted=[br[0].id,br[1].id];
+ // Se o playoff decisivo já existir, também aplica a vaga extra sem bloquear as duas trocas diretas.
  const final=state.results.find(r=>r.leagueId===b.id&&r.playoff&&r.playoffRoundKey==='FR-L2-F');
- if(!final)return {pending:true,error:'Conclua os três jogos dos playoffs da Ligue 2, incluindo o confronto contra o 16º da Ligue 1.'};
- resolveSingleKnockout(final);const winner=final.hg===final.ag?final.penaltyWinnerId:(final.hg>final.ag?final.homeId:final.awayId);
- if(!winner)return {error:'Não foi possível confirmar o vencedor do playoff final.'};
- const relegated=[ar[16].id,ar[17].id];if(winner===ar[15].id)relegated.push(ar[15].id);
- const promoted=[br[0].id,br[1].id,winner];
+ if(final){
+   resolveSingleKnockout(final);
+   const winner=final.hg===final.ag?final.penaltyWinnerId:(final.hg>final.ag?final.homeId:final.awayId);
+   if(winner){
+     promoted.push(winner);
+     if(winner===ar[15].id)relegated.push(ar[15].id);
+   }
+ }
  const nextA=[...a.teamIds.filter(id=>!relegated.includes(id)),...promoted.filter(id=>!a.teamIds.includes(id))];
  const nextB=[...b.teamIds.filter(id=>!promoted.includes(id)),...relegated.filter(id=>!b.teamIds.includes(id))];
- if(nextA.length!==18||new Set(nextA).size!==18||nextB.length!==18||new Set(nextB).size!==18)return {error:'A validação dos elencos falhou; nenhuma movimentação foi aplicada.'};
- const archived=state.seasons.find(x=>x.leagueId===b.id&&Number(x.season)===(Number(b.season)||1));if(archived)archived.results.push(...state.results.filter(r=>r.leagueId===b.id&&r.playoff&&!archived.results.some(x=>x.id===r.id)).map(r=>({...r})));
- a.teamIds=nextA;b.teamIds=nextB;for(const l of [a,b]){l.lastMovementSeason=l.season;l.fixtures=buildLeagueFixtures(l.teamIds,2);l.playoffFixtures=[]}
+ if(nextA.length!==18||new Set(nextA).size!==18||nextB.length!==18||new Set(nextB).size!==18)return {error:'A troca de clubes não preservaria 18 clubes por divisão; nada foi alterado.'};
+ a.teamIds=nextA;b.teamIds=nextB;
+ for(const l of [a,b]){l.lastMovementSeason=l.season;l.fixtures=buildLeagueFixtures(l.teamIds,2);l.playoffFixtures=[]}
  return {promoted,relegated};
 }
 function endSeason(id){
