@@ -615,10 +615,10 @@ function applyFrancePromotionRelegation(){
  return {promoted:allPromoted,relegated:allRelegated,playoffWinner};
 }
 function applyPortugalPromotionRelegation(){
- const norm=s=>String(s||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase();
+ const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
  const leagues=state.leagues.filter(l=>norm(leagueCountry(l))==='portugal');
- const a=leagues.find(l=>/primeira liga|liga portugal betclic/.test(norm((l.name||'')+' '+(l.shortName||''))));
- const b=leagues.find(l=>/liga portugal meu super|liga portugal 2/.test(norm((l.name||'')+' '+(l.shortName||''))));
+ const a=leagues.find(l=>/primeira liga|liga portugal betclic/.test(norm((l.name||'')+' '+(l.shortName||'')))||norm(l.name)==='primeira liga'||norm(l.shortName)==='primeira liga');
+ const b=leagues.find(l=>/liga portugal meu super|liga portugal 2/.test(norm((l.name||'')+' '+(l.shortName||'')))||norm(l.name)==='liga portugal meu super'||norm(l.shortName)==='liga portugal 2');
  if(!a||!b||a.id===b.id)return {error:'Não encontrei a Primeira Liga e a Liga Portugal Meu Super.'};
  if(Number(a.season||1)!==Number(b.season||1))return {error:'As duas divisões portuguesas estão em temporadas diferentes.'};
  if(Number(a.lastMovementSeason)===Number(a.season||1)&&Number(b.lastMovementSeason)===Number(b.season||1))return {alreadyApplied:true};
