@@ -557,13 +557,22 @@ function applyFrancePromotionRelegation(){
  if(Number(a.lastMovementSeason)===Number(a.season||1)&&Number(b.lastMovementSeason)===Number(b.season||1))return {alreadyApplied:true};
  const ar=standings(a),br=standings(b);
  if(!Array.isArray(a.teamIds)||!Array.isArray(b.teamIds)||a.teamIds.length!==18||b.teamIds.length!==18||ar.length!==18||br.length!==18)return {error:'As duas divisões francesas precisam ter exatamente 18 clubes.'};
+ const playoffFinal=state.results.find(r=>r.leagueId===b.id&&r.playoff&&r.playoffRoundKey==='FR-L2-F');
+ if(!playoffFinal)return {error:'Conclua os playoffs da Ligue 2, incluindo a final contra o 16º da Ligue 1, antes de avançar a temporada.'};
+ const playoffWinner=playoffFinal.hg===playoffFinal.ag?(playoffFinal.penaltyWinnerId||null):(playoffFinal.hg>playoffFinal.ag?playoffFinal.homeId:playoffFinal.awayId);
+ if(!playoffWinner)return {error:'Não foi possível determinar o vencedor do playoff final francês.'};
  const relegated=[ar[16].id,ar[17].id],promoted=[br[0].id,br[1].id];
- const nextA=[...a.teamIds.filter(id=>!relegated.includes(id)),...promoted.filter(id=>!a.teamIds.includes(id))];
- const nextB=[...b.teamIds.filter(id=>!promoted.includes(id)),...relegated.filter(id=>!b.teamIds.includes(id))];
+ const ligue1PlayoffTeam=ar[15].id;
+ const playoffPromoted=playoffWinner===ligue1PlayoffTeam?null:playoffWinner;
+ const playoffRelegated=playoffWinner===ligue1PlayoffTeam?null:ligue1PlayoffTeam;
+ const allRelegated=[...relegated,...(playoffRelegated?[playoffRelegated]:[])];
+ const allPromoted=[...promoted,...(playoffPromoted?[playoffPromoted]:[])];
+ const nextA=[...a.teamIds.filter(id=>!allRelegated.includes(id)),...allPromoted.filter(id=>!a.teamIds.includes(id))];
+ const nextB=[...b.teamIds.filter(id=>!allPromoted.includes(id)),...allRelegated.filter(id=>!b.teamIds.includes(id))];
  if(nextA.length!==18||new Set(nextA).size!==18||nextB.length!==18||new Set(nextB).size!==18)return {error:'A troca não preservaria 18 clubes únicos em cada divisão.'};
  a.teamIds=nextA;b.teamIds=nextB;
  for(const l of [a,b]){l.lastMovementSeason=Number(l.season||1);l.fixtures=buildLeagueFixtures(l.teamIds,2);l.playoffFixtures=[]}
- return {promoted,relegated};
+ return {promoted:allPromoted,relegated:allRelegated,playoffWinner};
 }
 function endSeason(id){
  const l=state.leagues.find(x=>x.id===id);if(!l)return;
@@ -662,7 +671,7 @@ function applyArgentinaPromotionRelegation(){
 function finishCountrySeason(){
  const leagues=countryLeagues();
  if(!leagues.length)return alert('Este país ainda não tem campeonatos.');
- if(!leagues.every(l=>l.seasonCompleted||(playedCount(l)>=l.fixtures.length&&(!isArgentinaLeague(l)||argentinaPlayoffChampion(l)!=null)&&(!isArgentinaNacional(l)||argentinaNacionalPlayoffsComplete(l)))))return alert('Finalize todos os jogos e mata-matas dos campeonatos deste país antes de avançar.');
+ if(!leagues.every(l=>l.seasonCompleted||(playedCount(l)>=l.fixtures.length&&(!isArgentinaLeague(l)||argentinaPlayoffChampion(l)!=null)&&(!isArgentinaNacional(l)||argentinaNacionalPlayoffsComplete(l))&&(!(/^ligue 2$/i.test(String(l.name||'').trim())&&String(leagueCountry(l)||'').trim().toLowerCase()==='frança')||state.results.some(r=>r.leagueId===l.id&&r.playoff&&r.playoffRoundKey==='FR-L2-F')))))return alert('Finalize todos os jogos e mata-matas dos campeonatos deste país antes de avançar.');
  const pending=leagues.filter(l=>!l.seasonCompleted);
  if(pending.length&&!confirm('Finalizar a temporada de '+selectedCountry+' e avançar todos os campeonatos para a próxima temporada? Os resultados serão arquivados e o histórico será preservado.'))return;
  pending.forEach(l=>{
