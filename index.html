@@ -555,7 +555,7 @@ function applyFrancePromotionRelegation(){
  const a=france.find(l=>/^ligue 1$/i.test(String(l.name||'').trim())),b=france.find(l=>/^ligue 2$/i.test(String(l.name||'').trim()));
  if(!a||!b)return {error:'Não encontrei a Ligue 1 e a Ligue 2 da França.'};
  if(a.teamIds.length!==18||b.teamIds.length!==18)return {error:'A Ligue 1 e a Ligue 2 precisam ter 18 clubes cada; movimentação cancelada para preservar os elencos.'};
- if(!a.seasonCompleted||!b.seasonCompleted)return {pending:true,error:'Finalize as temporadas das duas divisões francesas antes de aplicar a movimentação.'};
+ if((!a.seasonCompleted&&playedCount(a)<a.fixtures.length)||(!b.seasonCompleted&&playedCount(b)<b.fixtures.length))return {pending:true,error:'Finalize as temporadas das duas divisões francesas antes de aplicar a movimentação.'};
  if(a.lastMovementSeason===a.season&&b.lastMovementSeason===b.season)return {alreadyApplied:true};
  if(playedCount(a)<a.fixtures.length||playedCount(b)<b.fixtures.length)return {error:'Todos os jogos da fase regular das duas divisões precisam estar concluídos.'};
  const ar=standings(a),br=standings(b);if(ar.length!==18||br.length!==18)return {error:'As classificações francesas estão incompletas.'};
