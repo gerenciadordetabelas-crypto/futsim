@@ -571,8 +571,12 @@ function applyArgentinaPromotionRelegation(){
  const nextTop=topIds.filter(id=>!relegated.includes(id)).concat(promoted);
  const nextSecond=secondIds.filter(id=>!promoted.includes(id)).concat(relegated);
  if(nextTop.length!==30||new Set(nextTop).size!==30||nextSecond.length!==36||new Set(nextSecond).size!==36)return {error:'A validação da troca falhou; nenhuma alteração foi aplicada.'};
- primera.forEach(l=>{l.teamIds=nextTop.slice();l.lastMovementSeason=l.season});
- nacional.teamIds=nextSecond.slice();nacional.lastMovementSeason=nacional.season;
+ // Reatribui os grupos a TODOS os clubes depois do acesso/rebaixamento.
+ // Isso impede que promovidos/rebaixados mantenham a etiqueta de grupo da divisão anterior.
+ nextTop.forEach((id,i)=>{const t=state.teams.find(x=>x.id===id);if(t)t.argentinaGroup=i%2===0?'A':'B'});
+ nextSecond.forEach((id,i)=>{const t=state.teams.find(x=>x.id===id);if(t)t.argentinaNacionalGroup=i%2===0?'A':'B'});
+ primera.forEach(l=>{l.teamIds=nextTop.slice();l.lastMovementSeason=l.season;l.fixtures=[];l.playoffFixtures=[]});
+ nacional.teamIds=nextSecond.slice();nacional.lastMovementSeason=nacional.season;nacional.fixtures=[];nacional.playoffFixtures=[];
  return {promoted,relegated};
 }
 function finishCountrySeason(){
