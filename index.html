@@ -614,6 +614,44 @@ function applyFrancePromotionRelegation(){
  for(const l of [a,b]){l.lastMovementSeason=Number(l.season||1);l.fixtures=buildLeagueFixtures(l.teamIds,2);l.playoffFixtures=[]}
  return {promoted:allPromoted,relegated:allRelegated,playoffWinner};
 }
+function applyPortugalPromotionRelegation(){
+ const norm=s=>String(s||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase();
+ const leagues=state.leagues.filter(l=>norm(leagueCountry(l))==='portugal');
+ const a=leagues.find(l=>/primeira liga|liga portugal betclic/.test(norm((l.name||'')+' '+(l.shortName||''))));
+ const b=leagues.find(l=>/liga portugal meu super|liga portugal 2/.test(norm((l.name||'')+' '+(l.shortName||''))));
+ if(!a||!b||a.id===b.id)return {error:'Não encontrei a Primeira Liga e a Liga Portugal Meu Super.'};
+ if(Number(a.season||1)!==Number(b.season||1))return {error:'As duas divisões portuguesas estão em temporadas diferentes.'};
+ if(Number(a.lastMovementSeason)===Number(a.season||1)&&Number(b.lastMovementSeason)===Number(b.season||1))return {alreadyApplied:true};
+ if(playedCount(a)<a.fixtures.length||playedCount(b)<b.fixtures.length)return {error:'Conclua todos os jogos da Primeira Liga e da Liga Portugal Meu Super.'};
+ const ar=standings(a),br=standings(b);
+ if(ar.length!==18||br.length!==18||a.teamIds.length!==18||b.teamIds.length!==18)return {error:'As duas divisões portuguesas precisam ter 18 clubes cada.'};
+ const ida=state.results.find(r=>r.leagueId===b.id&&r.playoff&&r.playoffRoundKey==='PT-PO-I');
+ const volta=state.results.find(r=>r.leagueId===b.id&&r.playoff&&r.playoffRoundKey==='PT-PO-V');
+ if(!ida||!volta)return {error:'Conclua o playoff de permanência em Portugal (ida e volta) antes de finalizar a temporada.'};
+ const playoffWinner=playoffWinnerForPortugal(b,ar[15].id,br[2].id);
+ if(!playoffWinner)return {error:'Não foi possível determinar o vencedor do playoff português.'};
+ const relegated=[ar[16].id,ar[17].id],direct=[br[0].id,br[1].id];
+ const playoffPromoted=playoffWinner===ar[15].id?null:playoffWinner;
+ const playoffRelegated=playoffWinner===ar[15].id?null:ar[15].id;
+ const allPromoted=[...direct,...(playoffPromoted?[playoffPromoted]:[])];
+ const allRelegated=[...relegated,...(playoffRelegated?[playoffRelegated]:[])];
+ const nextA=[...a.teamIds.filter(id=>!allRelegated.includes(id)),...allPromoted.filter(id=>!a.teamIds.includes(id))];
+ const nextB=[...b.teamIds.filter(id=>!allPromoted.includes(id)),...allRelegated.filter(id=>!b.teamIds.includes(id))];
+ if(nextA.length!==18||new Set(nextA).size!==18||nextB.length!==18||new Set(nextB).size!==18)return {error:'A troca não preservaria 18 clubes únicos em cada divisão.'};
+ a.teamIds=nextA;b.teamIds=nextB;
+ for(const l of [a,b]){l.lastMovementSeason=Number(l.season||1);l.fixtures=buildLeagueFixtures(l.teamIds,2);l.playoffFixtures=[]}
+ const archived=state.seasons.find(x=>x.leagueId===b.id&&Number(x.season)===(Number(b.season)||1));
+ if(archived)archived.results.push(...[ida,volta].filter(r=>!archived.results.some(x=>x.id===r.id)).map(r=>({...r})));
+ return {promoted:allPromoted,relegated:allRelegated};
+}
+function playoffWinnerForPortugal(l,topSixteenth,secondThird){
+ const games=state.results.filter(r=>r.leagueId===l.id&&r.playoff&&(r.playoffRoundKey==='PT-PO-I'||r.playoffRoundKey==='PT-PO-V'));
+ if(games.length<2)return null;
+ const scores={};games.forEach(r=>{scores[r.homeId]=(scores[r.homeId]||0)+Number(r.hg||0);scores[r.awayId]=(scores[r.awayId]||0)+Number(r.ag||0)});
+ const topScore=scores[topSixteenth]||0,secondScore=scores[secondThird]||0;
+ if(topScore===secondScore){const decisive=games.find(r=>r.playoffRoundKey==='PT-PO-V')||games[games.length-1];if(decisive.hg===decisive.ag){if(!decisive.penaltyWinnerId)penaltyShootout(decisive);return decisive.penaltyWinnerId}return decisive.hg>decisive.ag?decisive.homeId:decisive.awayId}
+ return topScore>secondScore?topSixteenth:secondThird;
+}
 function endSeason(id){
  const l=state.leagues.find(x=>x.id===id);if(!l)return;
  if(l.seasonCompleted)return alert('Temporada já encerrada.');
@@ -729,7 +767,7 @@ function finishCountrySeason(){
    state.seasons.push({id:state.nextId++,leagueId:l.id,leagueName:l.name,season:Number(l.season)||1,championId,championName,table:rows.map((t,i)=>({...t,position:i+1})),results,completedAt:new Date().toISOString(),format:l.kind,country:leagueCountry(l)});
  });
  let movement=null;
- if(String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='argentina')movement=applyArgentinaPromotionRelegation();else if(normalizeCountryForMovement(selectedCountry))movement=applyBrazilPromotionRelegation();else if(String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='inglaterra')movement=applyEnglandPromotionRelegation();else if(String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='espanha')movement=applySpainPromotionRelegation();else if(String(selectedCountry||'').trim().toLowerCase()==='frança')movement=applyFrancePromotionRelegation();
+ if(String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='argentina')movement=applyArgentinaPromotionRelegation();else if(normalizeCountryForMovement(selectedCountry))movement=applyBrazilPromotionRelegation();else if(String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='inglaterra')movement=applyEnglandPromotionRelegation();else if(String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='espanha')movement=applySpainPromotionRelegation();else if(String(selectedCountry||'').trim().toLowerCase()==='frança')movement=applyFrancePromotionRelegation();else if(String(selectedCountry||'').trim().toLowerCase()==='portugal')movement=applyPortugalPromotionRelegation();
  // Terceiro título argentino: tabela anual somando os pontos de Apertura e Clausura.
  const argentinaPair=leagues.filter(isArgentinaLeague);
  if(String(selectedCountry||'').toLowerCase()==='argentina'&&argentinaPair.length>=2){
