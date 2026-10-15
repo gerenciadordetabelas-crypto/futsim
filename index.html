@@ -664,39 +664,43 @@ function applyFrancePromotionRelegation(){
  return {promoted:allPromoted,relegated:allRelegated,playoffWinner};
 }
 function applyMoroccoPromotionRelegation(){
- const norm=s=>String(s||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').trim().toLowerCase();
- const ls=state.leagues.filter(l=>norm(leagueCountry(l))==='marrocos');
- const a=ls.find(l=>/botola pro inwi|botola pro/i.test(norm((l.name||'')+' '+(l.shortName||'')) )&&!/botola pro 2/i.test(norm((l.name||'')+' '+(l.shortName||''))));
- const b=ls.find(l=>/botola pro 2/i.test(norm((l.name||'')+' '+(l.shortName||''))));
- if(!a||!b||a.id===b.id)return {error:'Não encontrei a Botola Pro Inwi e a Botola Pro 2 Inwi.'};
+ const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+ const country=l=>norm(leagueCountry(l)||l.country);
+ const ls=state.leagues.filter(l=>country(l)==='marrocos');
+ const label=l=>norm((l.name||'')+' '+(l.shortName||''));
+ const a=ls.find(l=>/botola pro inwi|botola pro/.test(label(l))&&!/botola pro 2/.test(label(l)));
+ const b=ls.find(l=>/botola pro 2/.test(label(l)));
+ if(!a||!b||a.id===b.id)return {error:'Não encontrei as duas divisões marroquinas.'};
  if(Number(a.season||1)!==Number(b.season||1))return {error:'As duas divisões do Marrocos estão em temporadas diferentes.'};
  if(Number(a.lastMovementSeason)===Number(a.season||1)&&Number(b.lastMovementSeason)===Number(b.season||1))return {alreadyApplied:true};
- if(!a.seasonCompleted||!b.seasonCompleted||playedCount(a)<a.fixtures.length||playedCount(b)<b.fixtures.length)return {error:'Conclua e finalize as temporadas regulares das duas divisões do Marrocos.'};
+ if(!a.seasonCompleted||!b.seasonCompleted||playedCount(a)<a.fixtures.length||playedCount(b)<b.fixtures.length)return {error:'Finalize as temporadas regulares das duas divisões.'};
  const ar=standings(a),br=standings(b);
- if(ar.length!==16||br.length!==16||a.teamIds.length!==16||b.teamIds.length!==16)return {error:'As duas divisões marroquinas precisam ter 16 clubes cada.'};
- const p1i=state.results.find(r=>r.leagueId===b.id&&r.playoff&&r.playoffRoundKey==='MA-P1-I');
- const p1v=state.results.find(r=>r.leagueId===b.id&&r.playoff&&r.playoffRoundKey==='MA-P1-V');
- const p2i=state.results.find(r=>r.leagueId===b.id&&r.playoff&&r.playoffRoundKey==='MA-P2-I');
- const p2v=state.results.find(r=>r.leagueId===b.id&&r.playoff&&r.playoffRoundKey==='MA-P2-V');
- if(!p1i||!p1v||!p2i||!p2v)return {error:'Simule os dois playoffs de acesso/permanência (ida e volta) antes de finalizar a temporada.'};
- const winner=(home,away,games)=>{
-  const scores={[home]:0,[away]:0};games.forEach(r=>{scores[r.homeId]=(scores[r.homeId]||0)+Number(r.hg||0);scores[r.awayId]=(scores[r.awayId]||0)+Number(r.ag||0)});
-  if(scores[home]!==scores[away])return scores[home]>scores[away]?home:away;
-  const last=games.find(r=>r.playoffRoundKey.endsWith('-V'))||games[games.length-1];
-  if(last.hg===last.ag){if(!last.penaltyWinnerId)penaltyShootout(last);return last.penaltyWinnerId||null}
-  return last.hg>last.ag?last.homeId:last.awayId;
+ if(a.teamIds.length!==16||b.teamIds.length!==16||ar.length!==16||br.length!==16)return {error:'Cada divisão precisa ter exatamente 16 clubes.'};
+ const result=(key,labelText)=>state.results.find(r=>r.leagueId===b.id&&r.playoff&&(r.playoffRoundKey===key||String(r.playoffLabel||'').includes(labelText)));
+ const p1i=result('MA-P1-I','Playoff 1 · ida'),p1v=result('MA-P1-V','Playoff 1 · volta'),p2i=result('MA-P2-I','Playoff 2 · ida'),p2v=result('MA-P2-V','Playoff 2 · volta');
+ if(!p1i||!p1v||!p2i||!p2v)return {error:'Faltam jogos dos playoffs. Simule os dois confrontos, ida e volta, antes de encerrar a temporada.'};
+ const winner=(secondId,firstId,games)=>{
+  const score={[secondId]:0,[firstId]:0};
+  for(const r of games){score[r.homeId]=(score[r.homeId]||0)+Number(r.hg||0);score[r.awayId]=(score[r.awayId]||0)+Number(r.ag||0)}
+  if(score[secondId]!==score[firstId])return score[secondId]>score[firstId]?secondId:firstId;
+  const decisive=games.find(r=>r.playoffRoundKey&&r.playoffRoundKey.endsWith('-V'))||games[games.length-1];
+  if(!decisive.penaltyWinnerId)penaltyShootout(decisive);
+  return decisive.penaltyWinnerId||null;
  };
  const p1=winner(br[2].id,ar[13].id,[p1i,p1v]),p2=winner(br[3].id,ar[12].id,[p2i,p2v]);
- if(!p1||!p2)return {error:'Não foi possível definir os vencedores dos playoffs marroquinos.'};
+ if(!p1||!p2)return {error:'Não foi possível decidir os playoffs. Em empate no agregado, confira a disputa por pênaltis.'};
  const directDown=[ar[14].id,ar[15].id],directUp=[br[0].id,br[1].id];
- const playoffUp=[p1,p2].filter(id=>a.teamIds.includes(id)===false);
+ const playoffUp=[p1,p2].filter(id=>b.teamIds.includes(id));
  const playoffDown=[ar[13].id,ar[12].id].filter(id=>!([p1,p2].includes(id)));
  const up=[...directUp,...playoffUp],down=[...directDown,...playoffDown];
  const nextA=[...a.teamIds.filter(id=>!down.includes(id)),...up.filter(id=>!a.teamIds.includes(id))];
  const nextB=[...b.teamIds.filter(id=>!up.includes(id)),...down.filter(id=>!b.teamIds.includes(id))];
- if(nextA.length!==16||new Set(nextA).size!==16||nextB.length!==16||new Set(nextB).size!==16)return {error:'A movimentação não preservaria 16 clubes únicos em cada divisão.'};
+ if(nextA.length!==16||new Set(nextA).size!==16||nextB.length!==16||new Set(nextB).size!==16)return {error:'A troca não preservaria 16 clubes únicos em cada divisão.'};
  a.teamIds=nextA;b.teamIds=nextB;
  for(const l of [a,b]){l.lastMovementSeason=Number(l.season||1);l.fixtures=buildLeagueFixtures(l.teamIds,2);l.playoffFixtures=[]}
+ const archivedA=state.seasons.find(x=>x.leagueId===a.id&&Number(x.season)===(Number(a.season)||1));
+ const archivedB=state.seasons.find(x=>x.leagueId===b.id&&Number(x.season)===(Number(b.season)||1));
+ for(const [archive,games] of [[archivedA,[p1i,p1v,p2i,p2v]],[archivedB,[p1i,p1v,p2i,p2v]]])if(archive){archive.results=archive.results||[];games.forEach(g=>{if(!archive.results.some(x=>x.id===g.id))archive.results.push({...g})})}
  return {promoted:up,relegated:down};
 }
 function applyPortugalPromotionRelegation(){
@@ -741,7 +745,7 @@ function endSeason(id){
  const l=state.leagues.find(x=>x.id===id);if(!l)return;
  if(l.seasonCompleted)return alert('Temporada já encerrada.');
  if(playedCount(l)<l.fixtures.length)return alert('Só é possível encerrar depois de todos os jogos.');
- if(isArgentinaLeague(l)&&!argentinaPlayoffChampion(l))return alert('Simule as oitavas, quartas, semifinais e final antes de encerrar o torneio.');if(isArgentinaNacional(l)&&!argentinaNacionalPlayoffsComplete(l))return alert('Simule a final pelo título e todas as fases do Torneio Reduzido antes de encerrar.');if(/^ligue 2$/i.test(String(l.name||'').trim())&&!state.results.some(r=>r.leagueId===l.id&&r.playoff&&r.playoffRoundKey==='FR-L2-F'))return alert('Conclua os playoffs da Ligue 2, incluindo o jogo contra o 16º da Ligue 1, antes de encerrar a temporada.');
+ if(isArgentinaLeague(l)&&!argentinaPlayoffChampion(l))return alert('Simule as oitavas, quartas, semifinais e final antes de encerrar o torneio.');if(isArgentinaNacional(l)&&!argentinaNacionalPlayoffsComplete(l))return alert('Simule a final pelo título e todas as fases do Torneio Reduzido antes de encerrar.');if(/^ligue 2$/i.test(String(l.name||'').trim())&&!state.results.some(r=>r.leagueId===l.id&&r.playoff&&r.playoffRoundKey==='FR-L2-F'))return alert('Conclua os playoffs da Ligue 2, incluindo o jogo contra o 16º da Ligue 1, antes de encerrar a temporada.');if(playoffType(l)==='morocco-second'){const ks=['MA-P1-I','MA-P1-V','MA-P2-I','MA-P2-V'];if(!ks.every(k=>state.results.some(r=>r.leagueId===l.id&&r.playoff&&r.playoffRoundKey===k)))return alert('Antes de encerrar a Botola Pro 2, simule os dois playoffs de acesso/permanência, ida e volta.');}
  if(!confirm('Encerrar a temporada '+(l.season||1)+' de '+l.name+' e guardar o campeão no histórico?'))return;
  const rows=standings(l),results=state.results.filter(r=>r.leagueId===l.id&&!r.playoff).map(r=>({...r})),seasonNo=Number(l.season)||1,championId=isArgentinaLeague(l)?argentinaPlayoffChampion(l):(rows[0]?.id??null),championName=state.teams.find(t=>t.id===championId)?.name||'Sem campeão';
  state.seasons.push({id:state.nextId++,leagueId:l.id,leagueName:l.name,season:seasonNo,championId,championName,table:rows.map((t,i)=>({...t,position:i+1})),results,completedAt:new Date().toISOString(),format:l.kind,country:leagueCountry(l)});
@@ -1003,7 +1007,7 @@ function playoffWinner(l,homeId,awayId){
   const w1=playoffWinner(l,rows[4].id,rows[7].id),w2=playoffWinner(l,rows[5].id,rows[6].id);
   if(w1&&w2){addGame(rows[2].id,w2,49,'Semifinal 1 · ida','EN-S1-I');addGame(w2,rows[2].id,50,'Semifinal 1 · volta','EN-S1-V');addGame(rows[3].id,w1,51,'Semifinal 2 · ida','EN-S2-I');addGame(w1,rows[3].id,52,'Semifinal 2 · volta','EN-S2-V');const sw1=playoffWinner(l,rows[2].id,w2),sw2=playoffWinner(l,rows[3].id,w1);if(sw1&&sw2)addGame(sw1,sw2,53,'Final · jogo único','EN-F',true)}
  }
- l.playoffFixtures=(l.playoffFixtures||[]).map(f=>({...f,played:state.results.some(r=>r.leagueId===l.id&&r.playoff&&r.homeId===f.homeId&&r.awayId===f.awayId)}));save();render();const finalPlayoffCount=state.results.filter(r=>r.leagueId===l.id&&r.playoff).length;if(type==='argentina-national'&&autoDepth<5&&finalPlayoffCount>initialPlayoffCount)simulatePlayoffs(id,autoDepth+1);
+ l.playoffFixtures=(l.playoffFixtures||[]).map(f=>({...f,played:state.results.some(r=>r.leagueId===l.id&&r.playoff&&r.homeId===f.homeId&&r.awayId===f.awayId)}));if(playoffType(l)==='morocco-second'){const ml=state.leagues.filter(x=>String(leagueCountry(x)||x.country||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase()==='marrocos');if(ml.some(x=>/botola pro inwi|botola pro/i.test(String((x.name||'')+' '+(x.shortName||'')) )&&!/botola pro 2/i.test(String((x.name||'')+' '+(x.shortName||'')))&&x.seasonCompleted)&&ml.some(x=>/botola pro 2/i.test(String((x.name||'')+' '+(x.shortName||'')))&&x.seasonCompleted)){const movement=applyMoroccoPromotionRelegation();if(movement.error)alert(movement.error);else if(movement.promoted)alert('Acesso e rebaixamento do Marrocos aplicados! Os calendários das duas divisões foram atualizados.');}}save();render();const finalPlayoffCount=state.results.filter(r=>r.leagueId===l.id&&r.playoff).length;if(type==='argentina-national'&&autoDepth<5&&finalPlayoffCount>initialPlayoffCount)simulatePlayoffs(id,autoDepth+1);
 }
 function simulateRound(id){let l=state.leagues.find(x=>x.id===id);if(!l||l.seasonCompleted)return;let round=nextRound(l);if(round===null)return alert('Todos os jogos deste campeonato já foram simulados.');let games=l.fixtures.filter(f=>(Number(f.round)||1)===round&&!fixturePlayed(l,f)).map(f=>play(l,f,true)).filter(Boolean);games.forEach(applyRating);if(playedCount(l)>=l.fixtures.length)ensurePlayoffFixtures(l);save();render()}
 function simulateAll(id){let l=state.leagues.find(x=>x.id===id);if(!l||l.seasonCompleted)return;let pending=l.fixtures.filter(f=>!fixturePlayed(l,f)).slice().sort((a,b)=>(Number(a.round)||1)-(Number(b.round)||1));let simulated=0;for(const f of pending){if(fixturePlayed(l,f))continue;const result=play(l,f,true);if(result){applyRating(result);simulated++}}if(playedCount(l)>=l.fixtures.length)ensurePlayoffFixtures(l);save();render();if(simulated===0&&playedCount(l)<l.fixtures.length)alert('Não foi possível simular os jogos restantes. Verifique se os clubes cadastrados correspondem aos jogos do calendário.')}
