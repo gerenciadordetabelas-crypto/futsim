@@ -601,7 +601,18 @@ function finishCountrySeason(){
  leagues.forEach(l=>{
    state.results=state.results.filter(r=>r.leagueId!==l.id);
    l.season=(Number(l.season)||1)+1;l.seasonCompleted=false;
-   l.playoffFixtures=[];l.fixtures=isArgentinaLeague(l)?buildArgentinaFixtures(l.teamIds,/clausura/i.test(l.name||'')):l.kind==='Liga'?buildLeagueFixtures(l.teamIds,l.turns||2):buildLeagueFixtures(l.teamIds,1);
+   l.playoffFixtures=[];
+   if(isArgentinaLeague(l)){
+     l.fixtures=buildArgentinaFixtures(l.teamIds,/clausura/i.test(l.name||''));
+   }else if(isArgentinaNacional(l)){
+     // Reequilibra os grupos para a nova temporada antes de gerar os jogos.
+     const ids=[...new Set(l.teamIds||[])];
+     ids.forEach((id,i)=>{const t=state.teams.find(x=>x.id===id);if(t)t.argentinaNacionalGroup=i%2===0?'A':'B'});
+     l.teamIds=ids;
+     l.fixtures=buildArgentinaNacionalFixtures(ids);
+   }else{
+     l.fixtures=l.kind==='Liga'?buildLeagueFixtures(l.teamIds,l.turns||2):buildLeagueFixtures(l.teamIds,1);
+   }
  });
  save();render();
  let message='Temporada finalizada! Todos os campeonatos de '+selectedCountry+' avançaram para a próxima temporada.';
