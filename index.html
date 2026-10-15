@@ -556,6 +556,30 @@ function buildLeagueFixtures(ids,turns){let rotation=ids.slice();if(rotation.len
 function createLeague(name,ids,kind,turns=2,country=null){if(ids.length<2)return alert('Escolha pelo menos 2 clubes.');let fixtures;if(kind==='Liga'){fixtures=buildLeagueFixtures(ids,turns)}else{fixtures=[];let round=1;for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++)fixtures.push({homeId:ids[i],awayId:ids[j],round:round++})}let l={id:state.nextId++,name,kind,country:country||state.teams.find(t=>ids.includes(t.id))?.country||selectedCountry||'Brasil',season:1,teamIds:ids,fixtures,turns:kind==='Liga'?turns:1};state.leagues.push(l);save();render();alert(kind==='Liga'?'Liga criada com rodadas organizadas. Boa temporada!':'Campeonato criado! Já pode simular os jogos.')}
 // Portugal: Primeira Liga conforme os 18 clubes fornecidos; não cria clubes extras.
 if(!state.countries.includes('Portugal'))state.countries.push('Portugal');
+// Botola Pro Inwi — apenas os 15 clubes fornecidos pelo usuário; falta informar o 16º.
+if(!state.countries.includes('Marrocos'))state.countries.push('Marrocos');
+const botolaTeams=[
+ ['COD Meknes','COD','Fez-Meknès','Meknès',68,['#00843D','#FFFFFF']],
+ ['IR Tangier','IRT','Tânger-Tetuão-Al Hoceïma','Tânger',72,['#0055A4','#FFFFFF']],
+ ['WS Temara','WST','Rabat-Salé-Kénitra','Témara',60,['#00843D','#FFFFFF']],
+ ['UTS Rabat','UTS','Rabat-Salé-Kénitra','Rabat',68,['#E30613','#FFFFFF']],
+ ['AS FAR','FAR','Rabat-Salé-Kénitra','Rabat',88,['#00843D','#000000']],
+ ['MA Tetuan','MAT','Tânger-Tetuão-Al Hoceïma','Tetuão',67,['#E30613','#FFFFFF']],
+ ['Raja CA','RCA','Casablanca-Settat','Casablanca',91,['#00843D','#FFFFFF']],
+ ['MAS Fez','MAS','Fez-Meknès','Fez',75,['#FFD700','#000000']],
+ ['HUS Agadir','HUSA','Souss-Massa','Agadir',73,['#E30613','#FFFFFF']],
+ ['Kawkab Marrakech','KACM','Marrakech-Safi','Marrakech',69,['#E30613','#FFFFFF']],
+ ['RS Berkane','RSB','Oriental','Berkane',85,['#F58220','#000000']],
+ ['RCA Zemamra','RCAZ','Casablanca-Settat','Zemamra',69,['#00843D','#FFFFFF']],
+ ['FUS Rabat','FUS','Rabat-Salé-Kénitra','Rabat',76,['#E30613','#FFFFFF']],
+ ['Wydad AC','WAC','Casablanca-Settat','Casablanca',90,['#E30613','#FFFFFF']],
+ ['US Amal Tiznit','USAT','Souss-Massa','Tiznit',62,['#00843D','#FFFFFF']],
+ ['DH El Jadida','DHJ','Casablanca-Settat','El Jadida',70,['#00843D','#FFFFFF']]
+];
+const botolaLeague=state.leagues.find(l=>String(l.country||'').trim()==='Marrocos'&&/botola pro/i.test(String((l.name||'')+' '+(l.shortName||''))))||{id:state.nextId++,name:'Botola Pro Inwi',shortName:'Botola Pro',country:'Marrocos',kind:'Liga',format:'Pontos Corridos + Playoffs',teamIds:[],fixtures:[],turns:2,season:1};
+if(!state.leagues.includes(botolaLeague))state.leagues.push(botolaLeague);
+const botolaIds=botolaTeams.map(t=>{let club=state.teams.find(x=>String(teamCountry(x)||'').trim()==='Marrocos'&&String(x.name||'').trim().toLowerCase()===t[0].toLowerCase());if(!club){club={id:state.nextId++,name:t[0],shortName:t[0],abbreviation:t[1],country:'Marrocos',stateName:t[2],city:t[3],strength:t[4],baseStrength:t[4],colors:t[5]};state.teams.push(club)}else{club.shortName=t[0];club.abbreviation=t[1];club.country='Marrocos';club.stateName=t[2];club.city=t[3];club.colors=t[5];if(typeof club.baseStrength!=='number')club.baseStrength=t[4];if(typeof club.strength!=='number')club.strength=t[4]}return club.id});
+if(!Array.isArray(botolaLeague.teamIds)||botolaLeague.teamIds.length===0){botolaLeague.teamIds=botolaIds.slice();botolaLeague.season=Number(botolaLeague.season)||1;botolaLeague.turns=2;botolaLeague.kind='Liga';botolaLeague.format='Pontos Corridos + Playoffs';botolaLeague.regulation='16 clubes, ida e volta (30 rodadas). Os 15º e 16º são rebaixados diretamente; 13º e 14º disputam playoffs de permanência. O 16º clube ainda precisa ser informado.';botolaLeague.fixtures=buildLeagueFixtures(botolaLeague.teamIds,2);botolaLeague.playoffFixtures=[];save()}
 const portugalTeams=[
  ['Porto','FCP','Norte','Porto',92,['#00529F','#FFFFFF']],
  ['Benfica','BEN','Lisboa','Lisboa',94,['#E30613','#FFFFFF']],
