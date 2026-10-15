@@ -551,28 +551,16 @@ function buildLeagueFixtures(ids,turns){let rotation=ids.slice();if(rotation.len
 function createLeague(name,ids,kind,turns=2,country=null){if(ids.length<2)return alert('Escolha pelo menos 2 clubes.');let fixtures;if(kind==='Liga'){fixtures=buildLeagueFixtures(ids,turns)}else{fixtures=[];let round=1;for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++)fixtures.push({homeId:ids[i],awayId:ids[j],round:round++})}let l={id:state.nextId++,name,kind,country:country||state.teams.find(t=>ids.includes(t.id))?.country||selectedCountry||'Brasil',season:1,teamIds:ids,fixtures,turns:kind==='Liga'?turns:1};state.leagues.push(l);save();render();alert(kind==='Liga'?'Liga criada com rodadas organizadas. Boa temporada!':'Campeonato criado! Já pode simular os jogos.')}
 function applyFrancePromotionRelegation(){
  const norm=s=>String(s||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().trim();
- const a=state.leagues.find(l=>norm(leagueCountry(l))==='franca'&&norm(l.name)==='ligue 1');
- const b=state.leagues.find(l=>norm(leagueCountry(l))==='franca'&&norm(l.name)==='ligue 2');
+ const leagues=state.leagues.filter(l=>norm(leagueCountry(l))==='franca');
+ const a=leagues.find(l=>norm(l.name)==='ligue 1'),b=leagues.find(l=>norm(l.name)==='ligue 2');
  if(!a||!b)return {error:'Não encontrei a Ligue 1 e a Ligue 2 da França.'};
  if(a.lastMovementSeason===a.season&&b.lastMovementSeason===b.season)return {alreadyApplied:true};
  const ar=standings(a),br=standings(b);
- if(ar.length<18||br.length<18||!Array.isArray(a.teamIds)||!Array.isArray(b.teamIds)||a.teamIds.length!==18||b.teamIds.length!==18)return {error:'As duas divisões precisam ter 18 clubes e classificação completa.'};
- // Ao encerrar a temporada: dois últimos da Ligue 1 descem e dois primeiros da Ligue 2 sobem.
- const relegated=[ar[16].id,ar[17].id];
- const promoted=[br[0].id,br[1].id];
- // Se o playoff decisivo já existir, também aplica a vaga extra sem bloquear as duas trocas diretas.
- const final=state.results.find(r=>r.leagueId===b.id&&r.playoff&&r.playoffRoundKey==='FR-L2-F');
- if(final){
-   resolveSingleKnockout(final);
-   const winner=final.hg===final.ag?final.penaltyWinnerId:(final.hg>final.ag?final.homeId:final.awayId);
-   if(winner){
-     promoted.push(winner);
-     if(winner===ar[15].id)relegated.push(ar[15].id);
-   }
- }
+ if(a.teamIds?.length!==18||b.teamIds?.length!==18||ar.length!==18||br.length!==18)return {error:'As duas divisões francesas precisam ter 18 clubes.'};
+ const relegated=[ar[16].id,ar[17].id],promoted=[br[0].id,br[1].id];
  const nextA=[...a.teamIds.filter(id=>!relegated.includes(id)),...promoted.filter(id=>!a.teamIds.includes(id))];
  const nextB=[...b.teamIds.filter(id=>!promoted.includes(id)),...relegated.filter(id=>!b.teamIds.includes(id))];
- if(nextA.length!==18||new Set(nextA).size!==18||nextB.length!==18||new Set(nextB).size!==18)return {error:'A troca de clubes não preservaria 18 clubes por divisão; nada foi alterado.'};
+ if(nextA.length!==18||new Set(nextA).size!==18||nextB.length!==18||new Set(nextB).size!==18)return {error:'A troca não preservaria 18 clubes em cada divisão.'};
  a.teamIds=nextA;b.teamIds=nextB;
  for(const l of [a,b]){l.lastMovementSeason=l.season;l.fixtures=buildLeagueFixtures(l.teamIds,2);l.playoffFixtures=[]}
  return {promoted,relegated};
@@ -590,7 +578,7 @@ function endSeason(id){
  const countryNorm=String(leagueCountry(l)||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  if(countryNorm==='brasil'){const ls=state.leagues.filter(x=>String(leagueCountry(x)).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='brasil');const aa=ls.find(x=>/serie\s*a/.test(String(x.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase())||['campeonato brasileiro','brasileirao'].includes(String(x.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase())),bb=ls.find(x=>/serie\s*b/.test(String(x.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()));if(aa&&bb&&aa.seasonCompleted&&bb.seasonCompleted)movement=applyBrazilPromotionRelegation();}
  else if(countryNorm==='espanha'){const ls=state.leagues.filter(x=>String(leagueCountry(x)).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='espanha');const aa=ls.find(x=>/la liga ea sports|\bla liga\b/i.test(String(x.name||'')+' '+String(x.shortName||''))&&!/hypermotion|la liga 2/i.test(String(x.name||'')+' '+String(x.shortName||''))),bb=ls.find(x=>/la liga hypermotion|la liga 2/i.test(String(x.name||'')+' '+String(x.shortName||'')));if(aa&&bb&&aa.seasonCompleted&&bb.seasonCompleted)movement=applySpainPromotionRelegation();}
- else if(countryNorm==='franca'){const ls=state.leagues.filter(x=>String(leagueCountry(x)).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='france'),aa=ls.find(x=>/^ligue 1$/i.test(String(x.name||'').trim())),bb=ls.find(x=>/^ligue 2$/i.test(String(x.name||'').trim()));if(aa&&bb&&aa.seasonCompleted&&bb.seasonCompleted)movement=applyFrancePromotionRelegation();}
+ else if(countryNorm==='franca'){const ls=state.leagues.filter(x=>String(leagueCountry(x)).normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase()==='franca'),aa=ls.find(x=>/^ligue 1$/i.test(String(x.name||'').trim())),bb=ls.find(x=>/^ligue 2$/i.test(String(x.name||'').trim()));if(aa&&bb&&aa.seasonCompleted&&bb.seasonCompleted)movement=applyFrancePromotionRelegation();}
  else if(countryNorm==='inglaterra'){const ls=state.leagues.filter(x=>String(leagueCountry(x)).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='inglaterra');const aa=ls.find(x=>/premier league/i.test(x.name||'')),bb=ls.find(x=>/championship/i.test(String(x.name||'')+' '+String(x.shortName||'')));if(aa&&bb&&aa.seasonCompleted&&bb.seasonCompleted)movement=applyEnglandPromotionRelegation();}
  else if(countryNorm==='argentina'){const ls=state.leagues.filter(x=>String(leagueCountry(x)).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='argentina'),top=ls.filter(isArgentinaLeague),second=ls.find(isArgentinaNacional);if(top.length>=2&&top.every(x=>x.seasonCompleted)&&second?.seasonCompleted)movement=applyArgentinaPromotionRelegation();}
  save();render();
