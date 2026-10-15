@@ -185,6 +185,20 @@ const ligue1Teams=[
 let ligue1=state.leagues.find(l=>String(l.name||'').toLowerCase()==='ligue 1'&&String(l.country||'').toLowerCase()==='frança');
 if(!ligue1){ligue1={id:state.nextId++,name:'Ligue 1',shortName:'Ligue 1',country:'França',kind:'Liga',format:'Pontos Corridos',teamIds:[],fixtures:[],turns:2,season:1};state.leagues.push(ligue1)}
 const ligue1Ids=ligue1Teams.map(t=>{let club=state.teams.find(x=>String(x.country||'').trim().toLowerCase()===t[2].toLowerCase()&&(String(x.name||'').trim().toLowerCase()===t[0].toLowerCase()||String(x.shortName||'').trim().toLowerCase()===t[0].toLowerCase()));if(!club){club={id:state.nextId++,name:t[0],shortName:t[0],abbreviation:t[1],country:t[2],stateName:t[3],city:t[4],strength:t[5],baseStrength:t[5],colors:t[6]};state.teams.push(club)}else{club.name=t[0];club.shortName=t[0];club.abbreviation=t[1];club.country=t[2];club.stateName=t[3];club.city=t[4];club.colors=t[6];if(typeof club.baseStrength!=='number')club.baseStrength=t[5];if(typeof club.strength!=='number')club.strength=t[5]}return club.id});
+// Migração: Monaco pertence à França no FutSim; elimina registro duplicado sob país Mônaco.
+{
+ const monacoClubs=state.teams.filter(t=>String(t.name||t.shortName||'').trim().toLowerCase()==='monaco');
+ const frenchClub=monacoClubs.find(t=>String(t.country||'').trim().toLowerCase()==='frança')||monacoClubs[0];
+ if(frenchClub){
+  const duplicateIds=monacoClubs.filter(t=>t.id!==frenchClub.id).map(t=>t.id);
+  frenchClub.country='França';frenchClub.name='Monaco';frenchClub.shortName='Monaco';frenchClub.abbreviation='ASM';frenchClub.stateName='Principado de Mônaco';frenchClub.city='Fontvieille';frenchClub.colors=['#E31B23','#FFFFFF'];
+  for(const l of state.leagues){if(Array.isArray(l.teamIds))l.teamIds=l.teamIds.map(id=>duplicateIds.includes(id)?frenchClub.id:id).filter((id,i,a)=>a.indexOf(id)===i)}
+  for(const result of state.results){if(duplicateIds.includes(result.homeId))result.homeId=frenchClub.id;if(duplicateIds.includes(result.awayId))result.awayId=frenchClub.id}
+  state.teams=state.teams.filter(t=>!duplicateIds.includes(t.id));
+ }
+ state.countries=(state.countries||[]).filter(c=>String(c).trim().toLowerCase()!=='mônaco'&&String(c).trim().toLowerCase()!=='monaco');
+ save();
+}
 if(!Array.isArray(ligue1.teamIds)||ligue1.teamIds.length===0){ligue1.name='Ligue 1';ligue1.shortName='Ligue 1';ligue1.country='França';ligue1.kind='Liga';ligue1.format='Pontos Corridos';ligue1.regulation='18 clubes em turno e returno, totalizando 34 rodadas. Os 2 últimos são rebaixados diretamente; o 16º disputa um playoff pela permanência.';ligue1.teamIds=ligue1Ids.slice();ligue1.turns=2;ligue1.season=Number(ligue1.season)||1;ligue1.fixtures=buildLeagueFixtures(ligue1.teamIds,2);save()}
 
 // Espanha: cadastra somente os 20 clubes fornecidos, de forma idempotente.
