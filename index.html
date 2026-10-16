@@ -680,30 +680,39 @@ function applyMoroccoPromotionRelegation(){
  const leagues=state.leagues.filter(x=>norm(leagueCountry(x)||x.country)==='marrocos'),label=x=>norm((x.name||'')+' '+(x.shortName||''));
  const first=leagues.find(x=>/botola pro/.test(label(x))&&!/botola pro 2/.test(label(x))),second=leagues.find(x=>/botola pro 2/.test(label(x)));
  if(!first||!second||first.id===second.id)return {error:'Não encontrei as duas divisões do Marrocos.'};
- if(Number(first.season||1)!==Number(second.season||1))return {error:'As duas divisões estão em temporadas diferentes.'};
- if(first.lastMovementSeason!=null&&second.lastMovementSeason!=null&&Number(first.lastMovementSeason)===Number(first.season||1)&&Number(second.lastMovementSeason)===Number(second.season||1))return {alreadyApplied:true};
- if(playedCount(first)<first.fixtures.length||playedCount(second)<second.fixtures.length)return {error:'Finalize as duas temporadas regulares antes de aplicar o acesso e rebaixamento.'};
+ const seasonA=Number(first.season||1),seasonB=Number(second.season||1);
+ if(seasonA!==seasonB)return {error:'As duas divisões estão em temporadas diferentes.'};
+ if(Number(first.lastMovementSeason)===seasonA&&Number(second.lastMovementSeason)===seasonB)return {alreadyApplied:true};
+ if(playedCount(first)<first.fixtures.length||playedCount(second)<second.fixtures.length)return {error:'Finalize os jogos das duas divisões antes de aplicar o acesso e rebaixamento.'};
  const a=standings(first),b=standings(second);
  if(first.teamIds.length!==16||second.teamIds.length!==16||a.length!==16||b.length!==16)return {error:'Cada divisão precisa ter 16 clubes cadastrados.'};
- const get=key=>state.results.find(r=>r.leagueId===second.id&&r.playoff&&r.playoffRoundKey===key),games=[get('MA-P1-I'),get('MA-P1-V'),get('MA-P2-I'),get('MA-P2-V')];
- if(games.some(x=>!x))return {error:'Faltam os quatro jogos dos playoffs: duas disputas de ida e volta.'};
+ // O botão Finalizar temporada sempre aplica o movimento direto: 15º–16º descem e 1º–2º sobem.
+ // Os playoffs só alteram as outras duas vagas se os quatro jogos de ida e volta estiverem concluídos.
+ const get=key=>state.results.find(r=>r.leagueId===second.id&&r.playoff&&r.playoffRoundKey===key);
+ const games=[get('MA-P1-I'),get('MA-P1-V'),get('MA-P2-I'),get('MA-P2-V')];
+ const playoffsReady=games.every(Boolean);
  const pairWinner=(lowerId,upperId,firstLeg,secondLeg)=>{
-  if(firstLeg.homeId!==lowerId||firstLeg.awayId!==upperId||secondLeg.homeId!==upperId||secondLeg.awayId!==lowerId)return null;
+  if(!firstLeg||!secondLeg||firstLeg.homeId!==lowerId||firstLeg.awayId!==upperId||secondLeg.homeId!==upperId||secondLeg.awayId!==lowerId)return null;
   const lowerGoals=Number(firstLeg.hg||0)+Number(secondLeg.ag||0),upperGoals=Number(firstLeg.ag||0)+Number(secondLeg.hg||0);
   if(lowerGoals!==upperGoals)return lowerGoals>upperGoals?lowerId:upperId;
   if(!secondLeg.penaltyWinnerId)penaltyShootout(secondLeg,upperId,lowerId);
   return secondLeg.penaltyWinnerId||null;
  };
- const w1=pairWinner(b[2].id,a[12].id,games[0],games[1]),w2=pairWinner(b[3].id,a[13].id,games[2],games[3]);
- if(!w1||!w2)return {error:'Os jogos dos playoffs não correspondem aos confrontos regulamentares. Gere novamente os playoffs da Botola Pro 2.'};
- const promoted=[b[0].id,b[1].id,w1,w2].filter((id,i,arr)=>arr.indexOf(id)===i);
- const relegated=[a[14].id,a[15].id,...[a[12].id,a[13].id].filter(id=>!promoted.includes(id))].filter((id,i,arr)=>arr.indexOf(id)===i);
+ let promoted=[b[0].id,b[1].id],relegated=[a[14].id,a[15].id],playoffsApplied=false;
+ if(playoffsReady){
+  const w1=pairWinner(b[2].id,a[12].id,games[0],games[1]),w2=pairWinner(b[3].id,a[13].id,games[2],games[3]);
+  if(w1&&w2){
+   promoted=[...promoted,w1,w2].filter((id,i,arr)=>arr.indexOf(id)===i);
+   relegated=[...relegated,...[a[12].id,a[13].id].filter(id=>!promoted.includes(id))].filter((id,i,arr)=>arr.indexOf(id)===i);
+   playoffsApplied=true;
+  }
+ }
  const nextFirst=[...first.teamIds.filter(id=>!relegated.includes(id)),...promoted.filter(id=>!first.teamIds.includes(id))];
  const nextSecond=[...second.teamIds.filter(id=>!promoted.includes(id)),...relegated.filter(id=>!second.teamIds.includes(id))];
  if(nextFirst.length!==16||new Set(nextFirst).size!==16||nextSecond.length!==16||new Set(nextSecond).size!==16)return {error:'Movimentação cancelada para evitar clubes duplicados ou faltando.'};
  first.teamIds=nextFirst;second.teamIds=nextSecond;
  for(const league of [first,second])league.lastMovementSeason=Number(league.season||1);
- return {promoted,relegated};
+ return {promoted,relegated,playoffsApplied};
 }
 function applyPortugalPromotionRelegation(){
  const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
