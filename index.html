@@ -855,7 +855,7 @@ function portugalSecondPlayoffComplete(l){
  return games.some(r=>r.playoffRoundKey==='PT-PO-I')&&games.some(r=>r.playoffRoundKey==='PT-PO-V');
 }
 function seasonCanBeFinalized(l){
- return !!l&&(l.seasonCompleted||(playedCount(l)>=l.fixtures.length&&(!isArgentinaLeague(l)||argentinaPlayoffChampion(l)!=null)&&(!isArgentinaNacional(l)||argentinaNacionalPlayoffsComplete(l))&&(!(/^ligue 2$/i.test(String(l.name||'').trim())&&String(leagueCountry(l)||'').trim().toLowerCase()==='frança')||state.results.some(r=>r.leagueId===l.id&&r.playoff&&r.playoffRoundKey==='FR-L2-F'))&&portugalSecondPlayoffComplete(l))&&(!(playoffType(l)==='morocco-second')||['MA-P1-I','MA-P1-V','MA-P2-I','MA-P2-V'].every(k=>state.results.some(r=>r.leagueId===l.id&&r.playoff&&r.playoffRoundKey===k))));
+ return !!l&&(l.seasonCompleted||(playedCount(l)>=l.fixtures.length&&(!isArgentinaLeague(l)||argentinaPlayoffChampion(l)!=null)&&(!isArgentinaNacional(l)||argentinaNacionalPlayoffsComplete(l))&&(!(/^ligue 2$/i.test(String(l.name||'').trim())&&String(leagueCountry(l)||'').trim().toLowerCase()==='frança')||state.results.some(r=>r.leagueId===l.id&&r.playoff&&r.playoffRoundKey==='FR-L2-F'))&&portugalSecondPlayoffComplete(l))&&(!(String(leagueCountry(l)||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').trim().toLowerCase()==='marrocos'&&/botola pro 2/i.test(String((l.name||'')+' '+(l.shortName||'')) )&&!/botola pro inwi/i.test(String(l.name||'')) )||['MA-P1-I','MA-P1-V','MA-P2-I','MA-P2-V'].every(k=>state.results.some(r=>r.leagueId===l.id&&r.playoff&&r.playoffRoundKey===k))));
 }
 function finishCountrySeason(){
  const leagues=countryLeagues();
