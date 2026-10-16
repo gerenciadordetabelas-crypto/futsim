@@ -682,7 +682,7 @@ function applyMoroccoPromotionRelegation(){
  if(!first||!second||first.id===second.id)return {error:'Não encontrei as duas divisões do Marrocos.'};
  if(Number(first.season||1)!==Number(second.season||1))return {error:'As duas divisões estão em temporadas diferentes.'};
  if(first.lastMovementSeason!=null&&second.lastMovementSeason!=null&&Number(first.lastMovementSeason)===Number(first.season||1)&&Number(second.lastMovementSeason)===Number(second.season||1))return {alreadyApplied:true};
- if(!first.seasonCompleted||!second.seasonCompleted||playedCount(first)<first.fixtures.length||playedCount(second)<second.fixtures.length)return {error:'Finalize as duas temporadas regulares antes de aplicar o acesso e rebaixamento.'};
+ if(playedCount(first)<first.fixtures.length||playedCount(second)<second.fixtures.length)return {error:'Finalize as duas temporadas regulares antes de aplicar o acesso e rebaixamento.'};
  const a=standings(first),b=standings(second);
  if(first.teamIds.length!==16||second.teamIds.length!==16||a.length!==16||b.length!==16)return {error:'Cada divisão precisa ter 16 clubes cadastrados.'};
  const get=key=>state.results.find(r=>r.leagueId===second.id&&r.playoff&&r.playoffRoundKey===key),games=[get('MA-P1-I'),get('MA-P1-V'),get('MA-P2-I'),get('MA-P2-V')];
@@ -702,7 +702,7 @@ function applyMoroccoPromotionRelegation(){
  const nextSecond=[...second.teamIds.filter(id=>!promoted.includes(id)),...relegated.filter(id=>!second.teamIds.includes(id))];
  if(nextFirst.length!==16||new Set(nextFirst).size!==16||nextSecond.length!==16||new Set(nextSecond).size!==16)return {error:'Movimentação cancelada para evitar clubes duplicados ou faltando.'};
  first.teamIds=nextFirst;second.teamIds=nextSecond;
- for(const league of [first,second]){league.lastMovementSeason=Number(league.season||1);league.fixtures=buildLeagueFixtures(league.teamIds,2);league.playoffFixtures=[];league.seasonCompleted=false;league.season=Number(league.season||1)+1;league.seasonStartedAt=new Date().toISOString()}
+ for(const league of [first,second])league.lastMovementSeason=Number(league.season||1);
  return {promoted,relegated};
 }
 function applyPortugalPromotionRelegation(){
@@ -762,7 +762,7 @@ function endSeason(id){
  else if(countryNorm==='argentina'){const ls=state.leagues.filter(x=>String(leagueCountry(x)).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='argentina'),top=ls.filter(isArgentinaLeague),second=ls.find(isArgentinaNacional);if(top.length>=2&&top.every(x=>x.seasonCompleted)&&second?.seasonCompleted)movement=applyArgentinaPromotionRelegation();}
  save();render();
  let message='Temporada encerrada! O campeão foi '+(rows[0]?.name||'—')+'.';
- if(movement?.promoted&&String(leagueCountry(l)||'').toLowerCase()==='inglaterra')message+='\n\nPremier League: os 3 últimos foram rebaixados. Da Championship, 2 clubes subiram diretamente e o campeão dos playoffs conquistou a terceira vaga.';else if(movement?.promoted&&String(leagueCountry(l)||'').toLowerCase()==='brasil')message+='\n\nBrasileirão: os 4 últimos da Série A foram rebaixados. Na Série B, 1º e 2º sobem diretamente; os vencedores de 3º x 6º e 4º x 5º também sobem.';else if(movement?.promoted&&String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='franca')message+='\n\nFrança: os 2 últimos da Ligue 1 foram rebaixados. O 16º também cai se perder o playoff final; os 2 primeiros da Ligue 2 sobem diretamente e o vencedor do playoff final completa a Ligue 1.';else if(movement?.promoted)message+='\n\nAcesso/rebaixamento concluído: 2 clubes subiram diretamente e o vencedor dos playoffs garantiu a terceira vaga. Os 3 últimos da primeira divisão foram rebaixados.';
+ if(movement?.promoted&&String(leagueCountry(l)||'').toLowerCase()==='inglaterra')message+='\n\nPremier League: os 3 últimos foram rebaixados. Da Championship, 2 clubes subiram diretamente e o campeão dos playoffs conquistou a terceira vaga.';else if(movement?.promoted&&String(leagueCountry(l)||'').toLowerCase()==='brasil')message+='\n\nBrasileirão: os 4 últimos da Série A foram rebaixados. Na Série B, 1º e 2º sobem diretamente; os vencedores de 3º x 6º e 4º x 5º também sobem.';else if(movement?.promoted&&String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='franca')message+='\n\nFrança: os 2 últimos da Ligue 1 foram rebaixados. O 16º também cai se perder o playoff final; os 2 primeiros da Ligue 2 sobem diretamente e o vencedor do playoff final completa a Ligue 1.';else if(movement?.promoted&&String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='marrocos')message+='\n\nMarrocos: os 2 últimos da Botola Pro foram rebaixados diretamente; 13º e 14º disputaram os playoffs. Da Botola Pro 2, os 2 primeiros subiram diretamente e os vencedores dos playoffs completaram o acesso.';else if(movement?.promoted)message+='\n\nAcesso/rebaixamento concluído: 2 clubes subiram diretamente e o vencedor dos playoffs garantiu a terceira vaga. Os 3 últimos da primeira divisão foram rebaixados.';
  else if(movement?.error)message+='\n\nA movimentação entre divisões não foi aplicada: '+movement.error;
  alert(message);
 }
@@ -846,7 +846,7 @@ function portugalSecondPlayoffComplete(l){
  return games.some(r=>r.playoffRoundKey==='PT-PO-I')&&games.some(r=>r.playoffRoundKey==='PT-PO-V');
 }
 function seasonCanBeFinalized(l){
- return !!l&&(l.seasonCompleted||(playedCount(l)>=l.fixtures.length&&(!isArgentinaLeague(l)||argentinaPlayoffChampion(l)!=null)&&(!isArgentinaNacional(l)||argentinaNacionalPlayoffsComplete(l))&&(!(/^ligue 2$/i.test(String(l.name||'').trim())&&String(leagueCountry(l)||'').trim().toLowerCase()==='frança')||state.results.some(r=>r.leagueId===l.id&&r.playoff&&r.playoffRoundKey==='FR-L2-F'))&&portugalSecondPlayoffComplete(l)));
+ return !!l&&(l.seasonCompleted||(playedCount(l)>=l.fixtures.length&&(!isArgentinaLeague(l)||argentinaPlayoffChampion(l)!=null)&&(!isArgentinaNacional(l)||argentinaNacionalPlayoffsComplete(l))&&(!(/^ligue 2$/i.test(String(l.name||'').trim())&&String(leagueCountry(l)||'').trim().toLowerCase()==='frança')||state.results.some(r=>r.leagueId===l.id&&r.playoff&&r.playoffRoundKey==='FR-L2-F'))&&portugalSecondPlayoffComplete(l))&&(!(playoffType(l)==='morocco-second')||['MA-P1-I','MA-P1-V','MA-P2-I','MA-P2-V'].every(k=>state.results.some(r=>r.leagueId===l.id&&r.playoff&&r.playoffRoundKey===k))));
 }
 function finishCountrySeason(){
  const leagues=countryLeagues();
@@ -859,7 +859,7 @@ function finishCountrySeason(){
    state.seasons.push({id:state.nextId++,leagueId:l.id,leagueName:l.name,season:Number(l.season)||1,championId,championName,table:rows.map((t,i)=>({...t,position:i+1})),results,completedAt:new Date().toISOString(),format:l.kind,country:leagueCountry(l)});
  });
  let movement=null;
- if(String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='argentina')movement=applyArgentinaPromotionRelegation();else if(normalizeCountryForMovement(selectedCountry))movement=applyBrazilPromotionRelegation();else if(String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='inglaterra')movement=applyEnglandPromotionRelegation();else if(String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='espanha')movement=applySpainPromotionRelegation();else if(String(selectedCountry||'').trim().toLowerCase()==='frança')movement=applyFrancePromotionRelegation();else if(String(selectedCountry||'').trim().toLowerCase()==='portugal')movement=applyPortugalPromotionRelegation();
+ if(String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='argentina')movement=applyArgentinaPromotionRelegation();else if(normalizeCountryForMovement(selectedCountry))movement=applyBrazilPromotionRelegation();else if(String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='inglaterra')movement=applyEnglandPromotionRelegation();else if(String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='espanha')movement=applySpainPromotionRelegation();else if(String(selectedCountry||'').trim().toLowerCase()==='frança')movement=applyFrancePromotionRelegation();else if(String(selectedCountry||'').trim().toLowerCase()==='portugal')movement=applyPortugalPromotionRelegation();else if(String(selectedCountry||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase()==='marrocos')movement=applyMoroccoPromotionRelegation();
  // Terceiro título argentino: tabela anual somando os pontos de Apertura e Clausura.
  const argentinaPair=leagues.filter(isArgentinaLeague);
  if(String(selectedCountry||'').toLowerCase()==='argentina'&&argentinaPair.length>=2){
