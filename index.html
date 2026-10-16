@@ -929,7 +929,18 @@ function portugalSecondPlayoffComplete(l){
  return games.some(r=>r.playoffRoundKey==='PT-PO-I')&&games.some(r=>r.playoffRoundKey==='PT-PO-V');
 }
 function seasonCanBeFinalized(l){
- return !!l&&(l.seasonCompleted||(playedCount(l)>=l.fixtures.length&&(!isArgentinaLeague(l)||argentinaPlayoffChampion(l)!=null)&&(!isArgentinaNacional(l)||argentinaNacionalPlayoffsComplete(l))&&(!(/^ligue 2$/i.test(String(l.name||'').trim())&&String(leagueCountry(l)||'').trim().toLowerCase()==='frança')||state.results.some(r=>r.leagueId===l.id&&r.playoff&&r.playoffRoundKey==='FR-L2-F'))&&portugalSecondPlayoffComplete(l))&&(!(String(leagueCountry(l)||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').trim().toLowerCase()==='marrocos'&&/botola pro 2/i.test(String((l.name||'')+' '+(l.shortName||'')) )&&!/botola pro inwi/i.test(String(l.name||'')) )||['MA-P1-I','MA-P1-V','MA-P2-I','MA-P2-V'].every(k=>state.results.some(r=>r.leagueId===l.id&&r.playoff&&r.playoffRoundKey===k))));
+ if(!l)return false;
+ if(l.seasonCompleted)return true;
+ if(playedCount(l)<(l.fixtures||[]).length)return false;
+ if(isArgentinaLeague(l)&&argentinaPlayoffChampion(l)==null)return false;
+ if(isArgentinaNacional(l)&&!argentinaNacionalPlayoffsComplete(l))return false;
+ if(/^ligue 2$/i.test(String(l.name||'').trim())&&String(leagueCountry(l)||'').trim().toLowerCase()==='frança'&&!state.results.some(r=>r.leagueId===l.id&&r.playoff&&r.playoffRoundKey==='FR-L2-F'))return false;
+ if(!portugalSecondPlayoffComplete(l))return false;
+ const normCountry=String(leagueCountry(l)||l.country||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').trim().toLowerCase();
+ const label=String((l.name||'')+' '+(l.shortName||''));
+ if(normCountry==='belgica'&&/challenger pro league/i.test(label)&&!['BE-S1','BE-S2','BE-F'].every(k=>state.results.some(r=>r.leagueId===l.id&&r.playoff&&r.playoffRoundKey===k)))return false;
+ if(normCountry==='marrocos'&&/botola pro 2/i.test(label)&&! /botola pro inwi/i.test(String(l.name||''))&&!['MA-P1-I','MA-P1-V','MA-P2-I','MA-P2-V'].every(k=>state.results.some(r=>r.leagueId===l.id&&r.playoff&&r.playoffRoundKey===k)))return false;
+ return true;
 }
 function finishCountrySeason(){
  const leagues=countryLeagues();
