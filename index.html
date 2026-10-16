@@ -986,7 +986,7 @@ function playoffWinner(l,homeId,awayId){
   if(!top||topRows.length<14||playedCount(top)<top.fixtures.length)return alert('Conclua também a temporada regular da Botola Pro Inwi para definir os 13º e 14º colocados.');
   const expected=[['MA-P1-I',rows[2].id,topRows[12].id],['MA-P1-V',topRows[12].id,rows[2].id],['MA-P2-I',rows[3].id,topRows[13].id],['MA-P2-V',topRows[13].id,rows[3].id]];
   const oldGames=state.results.filter(r=>r.leagueId===l.id&&r.playoff&&/^MA-P[12]-[IV]$/.test(r.playoffRoundKey||''));
-  if(oldGames.some(r=>{const e=expected.find(x=>x[0]===r.playoffRoundKey);return e&&(r.homeId!==e[1]||r.awayId!==e[2])})){
+  if(oldGames.some(r=>{const e=expected.find(x=>x[0]===r.playoffRoundKey);return e&&(r.homeId!==e[1]||r.awayId!==e[2])})||(l.playoffFixtures||[]).some(f=>{const e=expected.find(x=>x[0]===f.playoffRoundKey);return e&&(f.homeId!==e[1]||f.awayId!==e[2])})){
     state.results=state.results.filter(r=>!(r.leagueId===l.id&&r.playoff&&/^MA-P[12]-[IV]$/.test(r.playoffRoundKey||'')));
     l.playoffFixtures=[];ensurePlayoffFixtures(l);
     alert('Os playoffs antigos estavam com confrontos incorretos e foram removidos. Os quatro confrontos corretos foram recriados; simule-os novamente.');
