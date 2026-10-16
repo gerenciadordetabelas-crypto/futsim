@@ -642,6 +642,33 @@ if(!portugalLeague){portugalLeague={id:state.nextId++,name:'Liga Portugal Betcli
 const portugalIds=portugalTeams.map(t=>{let club=state.teams.find(x=>String(teamCountry(x)||'').trim()==='Portugal'&&String(x.name||'').trim().toLowerCase()===t[0].toLowerCase());if(!club){club={id:state.nextId++,name:t[0],shortName:t[0],abbreviation:t[1],country:'Portugal',stateName:t[2],city:t[3],strength:t[4],baseStrength:t[4],colors:t[5]};state.teams.push(club)}else{club.shortName=t[0];club.abbreviation=t[1];club.country='Portugal';club.stateName=t[2];club.city=t[3];club.colors=t[5];if(typeof club.baseStrength!=='number')club.baseStrength=t[4];if(typeof club.strength!=='number')club.strength=t[4]}return club.id});
 if(!Array.isArray(portugalLeague.teamIds)||portugalLeague.teamIds.length===0){portugalLeague.name='Liga Portugal Betclic';portugalLeague.shortName='Primeira Liga';portugalLeague.country='Portugal';portugalLeague.kind='Liga';portugalLeague.format='Pontos corridos';portugalLeague.regulation='18 clubes, ida e volta. Ao final, os 2 últimos são rebaixados e o 16º disputa os playoffs pela permanência.';portugalLeague.teamIds=portugalIds;portugalLeague.turns=2;portugalLeague.season=Number(portugalLeague.season)||1;portugalLeague.fixtures=buildLeagueFixtures(portugalIds,2);save()}
 
+// Belgian Pro League — somente os 18 clubes fornecidos pelo usuário.
+if(!state.countries.includes('Bélgica'))state.countries.push('Bélgica');
+const belgianTeams=[
+ ['Gent','GNT','Flandres Oriental','Gent',81,['#1E3A8A','#FFFFFF']],
+ ['Club Brugge','BRU','Flandres Ocidental','Bruges',92,['#000000','#0055A4']],
+ ['Charleroi','CHA','Valônia','Charleroi',75,['#000000','#FFFFFF']],
+ ['Union SG','USG','Região de Bruxelas-Capital','Saint-Gilles',88,['#FFD700','#0055A4']],
+ ['Anderlecht','AND','Região de Bruxelas-Capital','Anderlecht',89,['#6A1B9A','#FFFFFF']],
+ ['Westerlo','WES','Antuérpia','Westerlo',72,['#FFD700','#0055A4']],
+ ['Genk','GNK','Limburgo','Genk',85,['#0055A4','#FFFFFF']],
+ ['Zulte Waregem','ZWA','Flandres Ocidental','Waregem',70,['#E30613','#00843D']],
+ ['Standard Liège','STA','Liège','Liège',80,['#E30613','#FFFFFF']],
+ ['Lommel','LOM','Limburgo','Lommel',67,['#00843D','#FFFFFF']],
+ ['Beveren','BEV','Flandres Oriental','Beveren',69,['#FFD700','#000000']],
+ ['Sint Truiden','STV','Limburgo','Sint-Truiden',73,['#FFD700','#0055A4']],
+ ['Antwerp','ANT','Antuérpia','Antuérpia',84,['#E30613','#FFFFFF']],
+ ['Mechelen','MEC','Antuérpia','Mechelen',74,['#FFD700','#E30613']],
+ ['OH Leuven','OHL','Brabante Flamengo','Leuven',72,['#E30613','#000000']],
+ ['OH Louvière','OHLV','Hainaut','La Louvière',65,['#00843D','#FFFFFF']],
+ ['Kortrijk','KVK','Flandres Ocidental','Kortrijk',70,['#E30613','#FFFFFF']],
+ ['Cercle Brugge','CER','Flandres Ocidental','Bruges',74,['#00843D','#000000']]
+];
+let belgianLeague=state.leagues.find(l=>String(leagueCountry(l)||l.country||'').trim()==='Bélgica'&&(/belgian pro league|pro league/i.test(String(l.name||'')+' '+String(l.shortName||''))));
+if(!belgianLeague){belgianLeague={id:state.nextId++,name:'Belgian Pro League',shortName:'Pro League',country:'Bélgica',kind:'Liga',format:'Pontos corridos',teamIds:[],fixtures:[],turns:2,season:1};state.leagues.push(belgianLeague)}
+const belgianIds=belgianTeams.map(t=>{let club=state.teams.find(x=>String(teamCountry(x)||'').trim()==='Bélgica'&&String(x.name||'').trim().toLowerCase()===t[0].toLowerCase());if(!club){club={id:state.nextId++,name:t[0],shortName:t[0],abbreviation:t[1],country:'Bélgica',stateName:t[2],city:t[3],strength:t[4],baseStrength:t[4],colors:t[5]};state.teams.push(club)}else{club.shortName=t[0];club.abbreviation=t[1];club.country='Bélgica';club.stateName=t[2];club.city=t[3];club.colors=t[5];if(typeof club.baseStrength!=='number')club.baseStrength=t[4];if(typeof club.strength!=='number')club.strength=t[4]}return club.id});
+if(!Array.isArray(belgianLeague.teamIds)||belgianLeague.teamIds.length===0){belgianLeague.name='Belgian Pro League';belgianLeague.shortName='Pro League';belgianLeague.country='Bélgica';belgianLeague.kind='Liga';belgianLeague.format='Pontos corridos';belgianLeague.regulation='18 clubes, ida e volta (34 rodadas). Ao final, os 2 últimos são rebaixados diretamente.';belgianLeague.teamIds=belgianIds.slice();belgianLeague.turns=2;belgianLeague.season=Number(belgianLeague.season)||1;belgianLeague.fixtures=buildLeagueFixtures(belgianIds,2);save()}
+
 const portugalSecondTeams=[
  ['Lusitânia Lourosa','LOU','Norte','Lourosa',65,['#E30613','#FFFFFF']],['Sporting CP B','SPB','Lisboa','Alcochete',66,['#008B45','#FFFFFF']],['Farense','FAR','Algarve','Faro',72,['#000000','#FFFFFF']],['Penafiel','PEN','Norte','Penafiel',68,['#E30613','#000000']],['Benfica B','BNB','Lisboa','Seixal',67,['#E30613','#FFFFFF']],['Académica de Coimbra','AAC','Centro','Coimbra',66,['#000000','#FFFFFF']],['Tondela','TON','Centro','Tondela',70,['#FFD700','#008B45']],['Vizela','VIZ','Norte','Vizela',70,['#E30613','#FFFFFF']],['União de Leiria','ULE','Centro','Leiria',70,['#E30613','#FFFFFF']],['Leixões','LEI','Norte','Matosinhos',69,['#E30613','#FFFFFF']],['Portimonense','POR','Algarve','Portimão',70,['#000000','#FFFFFF']],['AFS','AFS','Norte','Vila das Aves',70,['#E30613','#000000']],['Porto B','POB','Norte','Vila Nova de Gaia',67,['#00529F','#FFFFFF']],['Felgueiras','FEL','Norte','Felgueiras',65,['#0055A4','#FFFFFF']],['Torrense','TOR','Oeste','Torres Vedras',67,['#0055A4','#E30613']],['Amarante','AMA','Norte','Amarante',63,['#000000','#FFFFFF']],['Chaves','CHA','Norte','Chaves',71,['#0055A4','#E30613']],['Feirense','FEI','Norte','Santa Maria da Feira',67,['#0055A4','#FFFFFF']]
 ];
